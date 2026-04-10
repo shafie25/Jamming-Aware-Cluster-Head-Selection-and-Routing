@@ -112,13 +112,29 @@ See `SIMULATION_LOG.md` for the format — use Run 001 as a template for all sub
 
 ---
 
-## Baselines (not yet implemented)
-Three baselines are planned for comparison:
+## Current Project Status
+
+| Component | Status |
+|---|---|
+| Proposed scheme (`run_proposed.m`) | Done |
+| Standard LEACH baseline (`run_leach.m`) | Done |
+| Baseline 1 — EWMA Detection | Not started |
+| Baseline 2 — TBC | Not started |
+| Baseline 3 — FCPA simplified | Not started |
+| Multi-seed averaging | Not started |
+| CHScore weight tuning | Not started |
+
+## Baselines
+
+**Implemented:**
+- `run_leach.m` — Standard LEACH (Heinzelman et al.). Probabilistic CH election, direct CH→BS transmission, no jamming awareness. Uses same energy model and network topology as proposed scheme for fair comparison.
+
+**Planned:**
 1. **Baseline 1 — EWMA Detection** (Paper: IEEE ICDSIS 2022): detection-only, no re-election or routing adaptation
 2. **Baseline 2 — TBC** (Paper: IEEE MRIE 2025): PDR threshold, flat network, topological node removal
 3. **Baseline 3 — FCPA simplified** (Paper: Sensors/Springer 2023): reactive K-medoids re-clustering on CH failure
 
-When implemented, each baseline will have its own `run_baseline*.m` file and be added to `results_all` in `main.m`.
+Each baseline has its own `run_*.m` file and is added to `results_all` in `main.m`.
 
 ---
 
