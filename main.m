@@ -25,9 +25,15 @@ results_proposed = run_proposed(x, y, BS, J_x, J_y, dist_to_BS, ...
     alpha, beta, gamma_, delta, phi1, phi2, phi3, ...
     p_base, kappa, r_j, E_elec, E_amp, E_da, L);
 
-fprintf('First node death at round: %d\n', results_proposed.t_death);
+fprintf('Proposed first node death at round: %d\n', results_proposed.t_death);
+
+%% Run Standard LEACH Baseline
+fprintf('Running standard LEACH...\n');
+results_leach = run_leach(x, y, BS, J_x, J_y, E0, T, M, ...
+    p_base, kappa, r_j, E_elec, E_amp, E_da, L);
+fprintf('LEACH first node death at round: %d\n', results_leach.t_death);
 fprintf('Done.\n');
 
 %% Plot Results
-results_all = {results_proposed};   % add baseline results here later
+results_all = {results_proposed, results_leach};
 plot_results(results_all, T);
