@@ -15,6 +15,19 @@ main.m
 ```
 This is the only entry point. Everything else is called from main.m.
 
+## Logging Simulation Results
+Every time you run a simulation, add an entry to `SIMULATION_LOG.md`. This keeps a permanent record of what was tested, what parameters were used, and what the results looked like.
+
+Each entry should include:
+- **Date and who ran it**
+- **Code state** — what was implemented or changed since the last run, any bugs fixed, the RNG seed used
+- **Full parameters table** — copy from `config.m` at the time of the run (parameters change over time, so record them per-run)
+- **Results table** — `t_death`, PDR, energy, delay, alive node counts at key rounds
+- **Takeaways** — what the results mean, anything unexpected
+- **What to do next** — follow-up actions or open questions
+
+See `SIMULATION_LOG.md` for the format — use Run 001 as a template for all subsequent entries.
+
 ---
 
 ## File Structure
