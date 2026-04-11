@@ -369,3 +369,51 @@ Within each seed, schemes run sequentially sharing the same RNG stream (topology
 - The headline result: proposed scheme delivers +21.4pp PDR improvement over the best baseline, with 4× fewer wasted (zero-PDR) rounds, and better energy efficiency — all while operating under an identical UAV jammer.
 
 ---
+
+## Run 006 — Energy-Aware Relay Penalty in Dijkstra (φ4 experiment — REVERTED)
+
+**Date:** 2026-04-11
+**Run by:** Ahmed + Claude Code
+
+### What This Run Was
+
+Attempted tweak to address relay node overload identified in Run 002. The Dijkstra routing cost was extended with a fourth term penalizing low-energy relay CHs:
+
+```
+C(i→j) = φ1 + φ2·E_amp·L·d² + φ3·JR_j + φ4·(1 − E_j/E0)
+```
+
+`φ4 = 5×10⁻⁴ J` (same magnitude as φ3). The hypothesis was that steering traffic away from energy-depleted relay nodes would reduce variance in first-node-death and better distribute routing load.
+
+### Parameters Changed
+
+| Parameter | Run 005 | Run 006 |
+|---|---|---|
+| `phi4` | N/A | **5×10⁻⁴ J** (new term added to Dijkstra cost) |
+| All other parameters | unchanged | unchanged |
+
+### Results (5-seed average)
+
+| Metric | Run 005 (baseline) | Run 006 (φ4 added) | Change |
+|---|---|---|---|
+| First death (round) | 394.0 ± 86.6 | 392.6 ± 98.1 | ~same, variance worse |
+| PDR mean (%) | **81.63 ± 3.46** | 80.20 ± 5.52 | **−1.43pp, variance worse** |
+| Energy @ round 300 (J) | 30.42 ± 0.73 | 30.46 ± 0.78 | ~same |
+| Zero-PDR rounds | **78.2 ± 37.4** | 93.6 ± 59.6 | **+15.4 worse, variance worse** |
+
+### Takeaways
+
+**The tweak made things worse on every meaningful metric. Code was fully reverted to Run 005 state.**
+
+**Why it backfired:** The energy penalty penalized nodes that are low-energy *because* they are good relays — well-positioned close to the BS, low JR, naturally attracting forwarding traffic. Penalizing them pushed Dijkstra onto longer, higher-JR detour paths, increasing zero-PDR rounds by +15 and degrading PDR variance from ±3.46 to ±5.52.
+
+**Root cause insight:** The CHScore energy term (`α·E_i/E0`) already handles relay overload from the election side — drained nodes score lower and get rotated out of the CH role at the next K=10 re-election. The routing does not need a second energy penalty. Relay overload self-corrects through the election cycle with at most 10-round lag. Adding a routing penalty disrupts current-round paths before the election cycle has a chance to rotate the node out naturally.
+
+### What to Do Next
+
+- Do not retry energy penalty in routing — the mechanism is sound on paper but counterproductive given the election cycle already handles it.
+- Consider tweak #2: `max(JR_src, JR_dest)` in routing cost — low effort, targets the source-side jamming gap.
+- Consider K_elec sensitivity test (try K_elec = 5) — faster re-election may reduce relay overload lag with zero structural changes.
+- Alternatively, shift focus to identifying and implementing stronger baselines from the literature before further proposed-scheme tuning.
+
+---

@@ -9,11 +9,21 @@ The simulation implements and evaluates a proposed heuristic scheme that integra
 ---
 
 ## How to Run
-Open MATLAB, navigate to this folder, and run:
+
+**Single seed (quick check):**
 ```matlab
 main.m
 ```
-This is the only entry point. Everything else is called from main.m.
+
+**5-seed averaged results (final paper numbers):**
+```matlab
+run_multiseed.m
+```
+
+**Network state visualization at a specific round:**
+```matlab
+plotting/visualize_snapshot.m   % set snapshot_round at the top, or leave 0 for random
+```
 
 ## Logging Simulation Results
 Every time you run a simulation, add an entry to `SIMULATION_LOG.md`. This keeps a permanent record of what was tested, what parameters were used, and what the results looked like.
@@ -32,19 +42,26 @@ See `SIMULATION_LOG.md` for the format — use Run 001 as a template for all sub
 
 ## File Structure
 
-| File | Role | Layer |
-|---|---|---|
-| `config.m` | All simulation parameters — edit values here | 1 |
-| `init_network.m` | Deploys 100 nodes randomly, initializes state vectors | 1 |
-| `uav_trajectory.m` | Precomputes circular UAV orbit J(t) for all T rounds | 1 |
-| `compute_packet_success.m` | Computes p_i(t) per node using jammer distance (Eq. 2) | 1 |
-| `compute_energy.m` | LEACH radio energy model: tx, rx, agg, overhead cases | 1 |
-| `update_jamming_risk.m` | PDR burst → EWMA → JR update (Eq. 3, 4, 5) | 2 |
-| `elect_ch_proposed.m` | CHScore election with greedy spatial suppression (Eq. 6) | 2 |
-| `route_dijkstra.m` | Builds inter-cluster graph, runs Dijkstra with C(s_i,s_j,t) (Eq. 7, 8) | 2 |
-| `run_proposed.m` | Main round loop tying all modules together | 2 |
-| `main.m` | Entry point: seeds RNG, calls init, runs scheme, plots | 4 |
-| `plot_results.m` | Plots PDR, energy, delay, alive nodes vs round | 4 |
+| File | Role |
+|---|---|
+| `core/config.m` | All simulation parameters — edit values here |
+| `core/init_network.m` | Deploys 100 nodes randomly, initializes state vectors |
+| `core/uav_trajectory.m` | Precomputes circular UAV orbit J(t) for all T rounds |
+| `core/compute_packet_success.m` | Computes p_i(t) per node using jammer distance (Eq. 2) |
+| `core/compute_energy.m` | LEACH radio energy model: tx, rx, agg, overhead cases |
+| `layer1/update_jamming_risk.m` | PDR burst → EWMA → JR update (Eq. 3, 4, 5) |
+| `layer1/elect_ch_proposed.m` | CHScore election with greedy spatial suppression (Eq. 6) |
+| `layer2/route_dijkstra.m` | Builds inter-cluster graph, runs Dijkstra with C(i,j,t) (Eq. 7, 8) |
+| `schemes/run_proposed.m` | Proposed scheme round loop |
+| `schemes/run_leach.m` | Standard LEACH baseline round loop |
+| `schemes/run_ewma_detect.m` | Baseline 1: LEACH + EWMA detection (unused) |
+| `schemes/run_threshold.m` | Baseline 2: LEACH + member suppression when JR > 0.70 |
+| `schemes/run_reactive_ch.m` | Baseline 3: LEACH + reactive CH re-election when CH JR > 0.50 |
+| `main.m` | Single-seed entry point |
+| `run_multiseed.m` | 5-seed averaging entry point (final paper results) |
+| `plotting/plot_results.m` | 4-panel results figure (single seed) |
+| `plotting/plot_multiseed.m` | Mean ± std band plots (multi-seed) |
+| `plotting/visualize_snapshot.m` | 2D network map at a specific round (clusters, JR, routing paths) |
 
 ---
 
@@ -76,13 +93,19 @@ See `SIMULATION_LOG.md` for the format — use Run 001 as a template for all sub
 - Weights: α=0.35, β=0.20, γ=0.35, δ=0.10
 - Dynamic K = round(0.05 × N_alive) CHs elected per round
 - Greedy spatial election with r_exc=25m exclusion radius
-- Communication range for neighbor counting: r_c=15m
+- `r_c=15m` — **neighbor counting range only** (see note below)
 
 **3. Inter-Cluster Routing**
 - Path cost: C(i,j,t) = φ1 + φ2·ε_amp·L·d²(i,j) + φ3·JR_j
 - φ1=1e-4, φ2=1, φ3=5e-4
 - Dijkstra's algorithm on weighted CH graph
 - BS treated as node N+1 with JR=0
+
+### Radio Range — Important Modeling Note
+
+`r_c = 15m` is used **only** for counting neighbors in the CHScore beta term. It is **not** a hard radio range limit. Cluster assignment (`elect_ch_proposed.m`) joins every member to its nearest CH by Euclidean distance, with no maximum range check — a member node can be assigned to a distant CH. This is consistent with standard LEACH simulation practice (Heinzelman et al. also assume no hard range cap; longer links are penalized via the d² energy term, not blocked outright).
+
+**Practical implication:** the d² amplifier energy model naturally makes very long member→CH links expensive and self-penalizing. The CHScore δ term also discourages electing peripheral CHs. However, in late-network rounds with few alive nodes and sparse CH coverage, some members may legitimately be assigned to CHs tens of meters away. This is a known simplification documented here for paper writing purposes.
 
 ### Radio Energy Model (Heinzelman et al. LEACH)
 - E_elec = 50 nJ/bit (circuit energy)
@@ -114,27 +137,29 @@ See `SIMULATION_LOG.md` for the format — use Run 001 as a template for all sub
 
 ## Current Project Status
 
+All schemes implemented. Final results from Run 005 (5-seed average).
+
 | Component | Status |
 |---|---|
 | Proposed scheme (`run_proposed.m`) | Done |
 | Standard LEACH baseline (`run_leach.m`) | Done |
-| Baseline 1 — EWMA Detection | Not started |
-| Baseline 2 — TBC | Not started |
-| Baseline 3 — FCPA simplified | Not started |
-| Multi-seed averaging | Not started |
-| CHScore weight tuning | Not started |
+| Baseline 1 — EWMA Detection (`run_ewma_detect.m`) | Done |
+| Baseline 2 — Threshold-JR (`run_threshold.m`) | Done |
+| Baseline 3 — Reactive-CH (`run_reactive_ch.m`) | Done |
+| Multi-seed averaging (`run_multiseed.m`) | Done |
+| Network snapshot visualization | Done |
+| Paper writing | In progress |
 
 ## Baselines
 
-**Implemented:**
-- `run_leach.m` — Standard LEACH (Heinzelman et al.). Probabilistic CH election, direct CH→BS transmission, no jamming awareness. Uses same energy model and network topology as proposed scheme for fair comparison.
+| Scheme | File | Design summary |
+|---|---|---|
+| Standard LEACH | `run_leach.m` | Probabilistic CH election, direct CH→BS, no jamming awareness |
+| EWMA-Detect | `run_ewma_detect.m` | LEACH + EWMA JR tracking — detection computed but never used in decisions |
+| Threshold-JR | `run_threshold.m` | LEACH + member transmission suppressed when JR > 0.70 |
+| Reactive-CH | `run_reactive_ch.m` | LEACH + reactive CH re-election when elected CH JR > 0.50 |
 
-**Planned:**
-1. **Baseline 1 — EWMA Detection** (Paper: IEEE ICDSIS 2022): detection-only, no re-election or routing adaptation
-2. **Baseline 2 — TBC** (Paper: IEEE MRIE 2025): PDR threshold, flat network, topological node removal
-3. **Baseline 3 — FCPA simplified** (Paper: Sensors/Springer 2023): reactive K-medoids re-clustering on CH failure
-
-Each baseline has its own `run_*.m` file and is added to `results_all` in `main.m`.
+All baselines use the same energy model, network topology, and UAV exposure as the proposed scheme. Baseline selection may be revised pending literature review — see `docs/proposed_model_for_paper_search.md`.
 
 ---
 

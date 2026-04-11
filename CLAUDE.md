@@ -59,6 +59,8 @@ RNG seed is fixed at `rng(42)` in `main.m` — all schemes see the identical net
 
 **LEACH.m vs run_leach.m:** `reference/LEACH.m` is the original standalone script (kept for reference). `schemes/run_leach.m` is the integrated function used in the simulation. They are different files.
 
+**`r_c` is NOT a radio range limit:** `r_c = 15m` is used exclusively in `elect_ch_proposed.m` to count neighbors for the CHScore beta term. Cluster assignment joins every member to its nearest CH with no maximum range check — this is a standard LEACH-simulation simplification. The d² energy model penalizes long links; it does not block them. Do not add a range check to cluster assignment unless explicitly asked. Document this assumption in the paper.
+
 ---
 
 ## How to Add a New Baseline
