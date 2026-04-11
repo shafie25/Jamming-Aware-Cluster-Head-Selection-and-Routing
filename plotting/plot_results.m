@@ -9,7 +9,14 @@
 function plot_results(results_all, T)
 
     rounds = 1:T;
-    colors = {'b', 'r', 'g', 'm'};    % one color per scheme
+    % Colorblind-friendly palette matching plot_multiseed.m
+    colors = {
+        [0.18, 0.45, 0.69], ...   % blue   — Proposed
+        [0.80, 0.15, 0.15], ...   % red    — LEACH
+        [0.20, 0.63, 0.17], ...   % green  — EWMA-Detect
+        [0.89, 0.47, 0.10], ...   % orange — Threshold-JR
+        [0.56, 0.12, 0.71]  ...   % purple — Reactive-CH
+    };
     n_schemes = length(results_all);
 
     figure('Position', [100, 100, 1200, 800]);
