@@ -19,7 +19,7 @@ clc; clear; close all;
 addpath(genpath('.'));
 
 %% ---- User Settings -------------------------------------------------------
-snapshot_round = 750;    % target round — set to 0 for random pick in [75, 400]
+snapshot_round = 500;    % target round — set to 0 for random pick in [75, 400]
 seed           = 42;   % RNG seed (matches main.m)
 %% -------------------------------------------------------------------------
 
@@ -50,7 +50,7 @@ for t = 1:snapshot_round
     %% CH election (every K_elec rounds, and round 1)
     if mod(t, K_elec) == 0 || t == 1
         [is_CH, CH_assign] = elect_ch_proposed(x, y, alive, energy, JR, ...
-            dist_to_BS, E0, d_max, r_c, r_exc, alpha, beta, gamma_, delta);
+            dist_to_BS, E0, d_max, r_c, r_exc, alpha, beta, gamma_, delta, r_tx);
 
         CH_idx_e = find(is_CH);
         for c = CH_idx_e
@@ -111,7 +111,9 @@ for t = 1:snapshot_round
     if ~any(alive); break; end
 end
 
-fprintf('Done. Alive: %d/%d  |  CHs: %d\n', sum(alive), N, sum(is_CH & alive));
+n_stranded_snap = sum(alive & ~is_CH & (CH_assign == 0));
+fprintf('Done. Alive: %d/%d  |  CHs: %d  |  Stranded: %d\n', ...
+    sum(alive), N, sum(is_CH & alive), n_stranded_snap);
 
 %% --- Plot ----------------------------------------------------------------
 figure('Position', [80, 80, 960, 860], 'Color', 'w');
@@ -185,6 +187,14 @@ if ~isempty(dead_idx)
         'MarkerSize', 9, 'Color', [0.65 0.65 0.65], 'LineWidth', 1.5);
 end
 
+%% 5b. Stranded nodes (alive, not CH, no CH within r_tx)
+stranded_idx = find(alive & ~is_CH & (CH_assign == 0));
+if ~isempty(stranded_idx)
+    plot(x(stranded_idx), y(stranded_idx), 'd', ...
+        'MarkerSize', 9, 'MarkerFaceColor', [0.85 0.85 0.10], ...
+        'MarkerEdgeColor', [0.50 0.50 0], 'LineWidth', 1.4);
+end
+
 %% 6. Alive member nodes (face color = JR heat, edge color = cluster)
 for ci = 1:n_CH
     c   = CH_idx(ci);
@@ -245,17 +255,18 @@ grid on; box on;
 set(gca, 'FontSize', 10, 'Layer', 'top');
 
 %% Legend (representative handles)
-h_mem  = plot(nan, nan, 'o',  'MarkerSize', 9,  'MarkerFaceColor', [0.9 0.9 0.9], 'MarkerEdgeColor', [0.2 0.4 0.7]);
-h_ch   = plot(nan, nan, 'p',  'MarkerSize', 14, 'MarkerFaceColor', [0.9 0.9 0.9], 'MarkerEdgeColor', [0.2 0.4 0.7]);
-h_uav  = plot(nan, nan, 'r*', 'MarkerSize', 12, 'LineWidth', 2);
-h_bs   = plot(nan, nan, 's',  'MarkerSize', 10, 'MarkerFaceColor', 'k', 'MarkerEdgeColor', 'k');
-h_zone = fill(nan, nan, [1 0.55 0.55], 'EdgeColor', [0.85 0 0], 'FaceAlpha', 0.22, 'LineStyle', '--');
-h_orb  = plot(nan, nan, '--', 'Color', [0.75 0.75 0.75], 'LineWidth', 1);
-h_path = plot(nan, nan, '-',  'Color', [0.3 0.3 0.3], 'LineWidth', 2.8);
-h_dead = plot(nan, nan, 'x',  'MarkerSize', 9,  'Color', [0.65 0.65 0.65], 'LineWidth', 1.5);
-legend([h_mem, h_ch, h_uav, h_bs, h_zone, h_orb, h_path, h_dead], ...
-    {'Member node (fill=JR)', 'Cluster Head ★', 'UAV Jammer', 'Base Station', ...
-     'Jamming zone', 'UAV orbit', 'Routing path', 'Dead node'}, ...
+h_mem      = plot(nan, nan, 'o',  'MarkerSize', 9,  'MarkerFaceColor', [0.9 0.9 0.9], 'MarkerEdgeColor', [0.2 0.4 0.7]);
+h_ch       = plot(nan, nan, 'p',  'MarkerSize', 14, 'MarkerFaceColor', [0.9 0.9 0.9], 'MarkerEdgeColor', [0.2 0.4 0.7]);
+h_stranded = plot(nan, nan, 'd',  'MarkerSize', 9,  'MarkerFaceColor', [0.85 0.85 0.10], 'MarkerEdgeColor', [0.50 0.50 0]);
+h_uav      = plot(nan, nan, 'r*', 'MarkerSize', 12, 'LineWidth', 2);
+h_bs       = plot(nan, nan, 's',  'MarkerSize', 10, 'MarkerFaceColor', 'k', 'MarkerEdgeColor', 'k');
+h_zone     = fill(nan, nan, [1 0.55 0.55], 'EdgeColor', [0.85 0 0], 'FaceAlpha', 0.22, 'LineStyle', '--');
+h_orb      = plot(nan, nan, '--', 'Color', [0.75 0.75 0.75], 'LineWidth', 1);
+h_path     = plot(nan, nan, '-',  'Color', [0.3 0.3 0.3], 'LineWidth', 2.8);
+h_dead     = plot(nan, nan, 'x',  'MarkerSize', 9,  'Color', [0.65 0.65 0.65], 'LineWidth', 1.5);
+legend([h_mem, h_ch, h_stranded, h_uav, h_bs, h_zone, h_orb, h_path, h_dead], ...
+    {'Member node (fill=JR)', 'Cluster Head ★', sprintf('Stranded (>%dm from CH)', r_tx), ...
+     'UAV Jammer', 'Base Station', 'Jamming zone', 'UAV orbit', 'Routing path', 'Dead node'}, ...
     'Location', 'northwest', 'FontSize', 9, 'Box', 'on');
 
 hold off;

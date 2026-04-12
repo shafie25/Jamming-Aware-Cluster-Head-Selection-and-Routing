@@ -417,3 +417,121 @@ C(i→j) = φ1 + φ2·E_amp·L·d² + φ3·JR_j + φ4·(1 − E_j/E0)
 - Alternatively, shift focus to identifying and implementing stronger baselines from the literature before further proposed-scheme tuning.
 
 ---
+
+## Run 007 — Hard Transmission Range Limit (r_tx = 50m)
+
+**Date:** 2026-04-12
+**Run by:** Ahmed + Claude Code
+
+### What This Run Was
+
+First run with a hard transmission range limit. Previously, every alive node was assigned to its nearest CH with no distance cap — long links were penalized only via the d² energy term. This run adds `r_tx = 50m`: member nodes farther than 50m from every CH are stranded and cannot join any cluster. Their M packets count in the PDR denominator as lost (honest accounting). The change applies equally to both proposed and LEACH.
+
+Motivation: in late-network rounds with 1–2 CHs, some nodes can be 50–70m from the nearest CH. Without a range cap, the simulation silently assigns them to a distant CH at unrealistic cost. The 50m limit is ~2× the average nearest-CH distance in a healthy 5-CH network (~22m), so healthy rounds are largely unaffected.
+
+This run was Proposed vs LEACH only — baselines not updated yet.
+
+### Parameters Changed
+
+| Parameter | Run 005 | Run 007 | Reason |
+|---|---|---|---|
+| `r_tx` | N/A (no limit) | **50 m** | Hard transmission range cap added |
+| All other parameters | unchanged | unchanged | — |
+
+### Code Changes
+
+- `core/config.m` — added `r_tx = 50`
+- `layer1/elect_ch_proposed.m` — cluster assignment enforces `min_d <= r_tx`; stranded nodes keep `CH_assign = 0`
+- `schemes/run_proposed.m` — added `r_tx` parameter; stranded node guard in overhead loop; `n_stranded * M` added to `total_sent` before PDR record
+- `schemes/run_leach.m` — same range check in cluster assignment; same stranded PDR accounting
+- `run_multiseed.m` — trimmed to 2 schemes (Proposed + LEACH) for this run
+
+### Per-Seed First Node Death
+
+| Seed | Proposed | LEACH |
+|---|---|---|
+| 42  | 555 | 724 |
+| 7   | 575 | 758 |
+| 13  | 570 | 679 |
+| 99  | 616 | 723 |
+| 101 | 589 | 707 |
+
+### Results (mean ± std across 5 seeds)
+
+| Metric | Proposed | LEACH | Run 005 Proposed | Run 005 LEACH |
+|---|---|---|---|---|
+| First node death (round) | 581.0 ± 23.0 | 718.2 ± 28.7 | 394.0 ± 86.6 | 432.0 ± 34.0 |
+| PDR mean — all rounds (%) | **73.81 ± 1.72** | 64.54 ± 0.46 | 81.63 ± 3.46 | 58.99 ± 1.02 |
+| Energy @ round 300 (J) | 31.64 ± 0.24 | **32.34 ± 1.08** | 30.42 ± 0.73 | 26.92 ± 1.03 |
+| Zero-PDR rounds | **13.6 ± 2.8** | 155.0 ± 23.9 | 78.2 ± 37.4 | 330.8 ± 11.7 |
+
+### Takeaways
+
+**1. Proposed still dominates PDR but gap narrowed (+9.3pp vs +22pp in Run 005).**
+73.81% vs 64.54%. The range limit exposes a different late-round regime: stranded nodes pull both schemes' PDR down, but they pull the proposed scheme's down more because the proposed scheme previously held up stronger in late rounds (fewer dead CHs, better CH placement) — that advantage is now partially offset by stranded nodes contributing zeros regardless of jamming awareness.
+
+**2. First-node-death jumped sharply for both schemes.**
+Proposed: 394 → 581 rounds (+187). LEACH: 432 → 718 rounds (+286). Stranded nodes burn zero energy — they can't transmit so they never drain. This inflates network lifetime artificially in both cases. LEACH benefits more because random CH placement tends to strand more peripheral nodes earlier, saving more energy. This metric is less meaningful as a paper result under the range limit since it conflates "nodes are alive" with "nodes are reachable."
+
+**3. Proposed scheme first-death variance collapsed (±23 vs ±86.6 in Run 005).**
+Run 005's high variance was driven by relay node overload on bad topologies. With the range limit, stranded nodes never burden relay CHs, smoothing out the topology-sensitive variance. More consistent behavior across seeds.
+
+**4. Zero-PDR rounds dropped dramatically for both, but proposed remains far better.**
+Proposed: 78.2 → 13.6 (nearly eliminated). LEACH: 330.8 → 155.0 (halved but still high). The "zero-PDR round" metric now fires only when literally no node can deliver to any CH — a stricter condition. The proposed scheme almost never hits it; LEACH still hits it 155 times due to random CH placement occasionally stranding large portions of the network simultaneously.
+
+**5. Energy @ r300: LEACH now slightly ahead (+0.70 J).**
+Reversed from Run 005 where proposed was ahead. Explanation: stranded LEACH nodes skip transmission, saving more energy for LEACH than for the proposed scheme (which strands fewer nodes, so fewer "free" energy savings from skipped Tx).
+
+**6. The PDR gap narrowed but the zero-PDR advantage widened relatively.**
+In Run 005, proposed had 4.2× fewer zero-PDR rounds (78 vs 331). In Run 007, it has 11.4× fewer (13.6 vs 155). The range limit makes the "dead silence" problem worse for LEACH — random CH placement sometimes clusters all CHs in one zone, stranding the rest of the network with no coverage.
+
+### What to Do Next
+
+- Decide whether r_tx = 50m is the right value for the paper or just a sensitivity check
+- Consider running the 3 baselines with r_tx to get the full 5-scheme comparison under the range limit
+- Update CLAUDE.md "Current State" and "Final Results" sections if r_tx is kept as a permanent model choice
+- The reduced PDR gap (+9.3pp vs +22pp) may weaken the paper's headline claim — worth assessing whether the range limit is a core modeling choice or an optional sensitivity analysis
+
+---
+
+## Run 008 — Higher CH Density (p_CH 0.05 → 0.10 — REVERTED)
+
+**Date:** 2026-04-12
+**Run by:** Ahmed + Claude Code
+
+### What This Run Was
+
+Attempted improvement targeting the stranded node problem introduced by r_tx=50m in Run 007. With only 5 CHs covering a 100×100m field, late-round node stranding becomes significant. Hypothesis: doubling CH density to 10 would halve average nearest-CH distance (~22m → ~11m), reducing stranded nodes and recovering PDR. `r_exc` was also updated to scale automatically with `p_CH` to prevent exclusion zone overlap from blocking the extra elections.
+
+### Parameters Changed
+
+| Parameter | Run 007 | Run 008 | Reason |
+|---|---|---|---|
+| `p_CH` | 0.05 | **0.10** | Double CH density to reduce stranded nodes |
+| `r_exc` | 25m (hardcoded) | **`sqrt(area²/(p_CH·N·π))` ≈ 18m** | Scaled down to match new CH density |
+
+### Results (mean ± std across 5 seeds)
+
+| Metric | Run 007 (p_CH=0.05) | Run 008 (p_CH=0.10) | Change |
+|---|---|---|---|
+| First node death (round) | 581.0 ± 23.0 | 559.2 ± 12.4 | **−21.8 rounds (worse)** |
+| PDR mean (%) | 73.81 ± 1.72 | 69.98 ± 0.84 | **−3.83pp (worse)** |
+| PDR gap over LEACH | +9.3pp | +5.8pp | **narrowed** |
+| Energy @ round 300 (J) | 31.64 ± 0.24 | 31.18 ± 0.47 | −0.46 J (worse) |
+| Zero-PDR rounds | 13.6 ± 2.8 | 20.0 ± 12.4 | **+6.4 (worse)** |
+
+### Takeaways
+
+**Every metric got worse. Config reverted to Run 007 values.**
+
+**Why it backfired:** More CHs means more aggregation, overhead, and routing energy paid every round across all 1000 rounds. The stranded node problem only affects late rounds (~200 rounds). The energy penalty hits the full simulation; the coverage benefit is limited to the tail. Net result: faster drain, earlier first death, lower PDR.
+
+**Root cause:** Stranded nodes are a late-round phenomenon. A global increase in p_CH is too blunt — it pays the overhead cost everywhere to fix a problem that only exists at the end. A dynamic p_CH that scales up only as N_alive drops would target the problem without burning extra energy in healthy rounds.
+
+### What to Do Next
+
+- Do not retry flat p_CH increase — overhead cost outweighs coverage benefit
+- Consider dynamic p_CH: start at 0.05 when N_alive=100, ramp toward 0.10 as network shrinks
+- This would increase CH density only when stranding becomes a problem, not throughout the full simulation
+
+---

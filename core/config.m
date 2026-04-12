@@ -35,6 +35,10 @@ r_c      = 15;                % communication range for neighbor counting (m) �
 r_exc    = 25;                % CH exclusion radius (m) — minimum spatial separation
                               % between elected CHs. Derived: area/K = 2000m^2 per CH,
                               % r = sqrt(2000/pi) ~ 25m. Guarantees spatial spread.
+r_tx     = 50;                % hard transmission range limit (m) — member nodes beyond
+                              % this distance from every CH are stranded (cannot join any
+                              % cluster). Their M packets count in PDR denominator as lost.
+                              % ~2x average CH-to-member distance in healthy network.
 
 %% EWMA Smoothing
 % lambda=0.6 — recent observations dominate but one anomalous round

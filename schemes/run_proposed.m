@@ -9,7 +9,7 @@
 function results = run_proposed(x, y, BS, J_x, J_y, dist_to_BS, ...
     E0, d_max, T, K_elec, M, lambda, r_c, r_exc, ...
     alpha, beta, gamma_, delta, phi1, phi2, phi3, ...
-    p_base, kappa, r_j, E_elec, E_amp, E_da, L)
+    p_base, kappa, r_j, E_elec, E_amp, E_da, L, r_tx)
 
     N = length(x);
 
@@ -34,7 +34,7 @@ function results = run_proposed(x, y, BS, J_x, J_y, dist_to_BS, ...
         %% --- CH Election (every K_elec rounds) ---
         if mod(t, K_elec) == 0 || t == 1
             [is_CH, CH_assign] = elect_ch_proposed(x, y, alive, energy, JR, ...
-                dist_to_BS, E0, d_max, r_c, r_exc, alpha, beta, gamma_, delta);
+                dist_to_BS, E0, d_max, r_c, r_exc, alpha, beta, gamma_, delta, r_tx);
 
             % Overhead energy: CH broadcasts ADV, members send join request
             CH_idx = find(is_CH);
@@ -46,6 +46,7 @@ function results = run_proposed(x, y, BS, J_x, J_y, dist_to_BS, ...
                 energy(c) = energy(c) - compute_energy('overhead', L, E_elec, E_amp, E_da, avg_d, 0);
             end
             for i = find(alive & ~is_CH)
+                if CH_assign(i) == 0; continue; end   % stranded — no CH to join
                 d_to_CH = sqrt((x(i) - x(CH_assign(i)))^2 + (y(i) - y(CH_assign(i)))^2);
                 energy(i) = energy(i) - compute_energy('overhead', L, E_elec, E_amp, E_da, d_to_CH, 0);
             end
@@ -110,6 +111,10 @@ function results = run_proposed(x, y, BS, J_x, J_y, dist_to_BS, ...
             total_delay = total_delay + hop_counts(c);
             n_CH_active = n_CH_active + 1;
         end
+
+        %% --- Stranded nodes: count their packets as lost in denominator ---
+        n_stranded = sum(alive & ~is_CH & (CH_assign == 0));
+        total_sent = total_sent + n_stranded * M;
 
         %% --- Record Metrics ---
         PDR_per_round(t)    = (total_sent > 0) * total_recv / max(total_sent, 1);

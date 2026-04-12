@@ -27,7 +27,7 @@
 %   results    — struct with fields: PDR, energy, delay, alive, t_death, label
 
 function results = run_leach(x, y, BS, J_x, J_y, E0, T, M, ...
-    p_base, kappa, r_j, E_elec, E_amp, E_da, L)
+    p_base, kappa, r_j, E_elec, E_amp, E_da, L, r_tx)
 
     N   = length(x);
     P   = 0.05;   % target CH fraction (LEACH standard)
@@ -69,13 +69,17 @@ function results = run_leach(x, y, BS, J_x, J_y, E0, T, M, ...
         end
 
         %% --- Cluster Assignment ---
-        % Each alive non-CH joins the nearest CH
+        % Each alive non-CH joins nearest CH within r_tx.
+        % Nodes beyond r_tx from every CH are stranded (CH_assign stays 0).
         CH_idx = find(is_CH);
         CH_assign = zeros(1, N);
         for i = find(alive & ~is_CH)
-            d_to_CHs     = sqrt((x(i) - x(CH_idx)).^2 + (y(i) - y(CH_idx)).^2);
-            [~, nearest] = min(d_to_CHs);
-            CH_assign(i) = CH_idx(nearest);
+            d_to_CHs          = sqrt((x(i) - x(CH_idx)).^2 + (y(i) - y(CH_idx)).^2);
+            [min_d, nearest]  = min(d_to_CHs);
+            if min_d <= r_tx
+                CH_assign(i) = CH_idx(nearest);
+            end
+            % else stays 0 — stranded
         end
 
         %% --- Packet Success Probability (same jamming as proposed scheme) ---
@@ -115,6 +119,10 @@ function results = run_leach(x, y, BS, J_x, J_y, E0, T, M, ...
 
             n_CH_active = n_CH_active + 1;
         end
+
+        %% --- Stranded nodes: count their packets as lost in denominator ---
+        n_stranded = sum(alive & ~is_CH & (CH_assign == 0));
+        total_sent = total_sent + n_stranded * M;
 
         %% --- Record Metrics ---
         PDR_per_round(t)    = (total_sent > 0) * total_recv / max(total_sent, 1);

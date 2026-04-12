@@ -14,13 +14,16 @@
 %   r_c          — communication range for neighbor counting (m)
 %   r_exc        — CH exclusion radius for spatial spread (m)
 %   alpha, beta, gamma_, delta — CHScore weighting coefficients
+%   r_tx         — hard transmission range limit (m); nodes farther than this
+%                  from every CH are stranded (CH_assign stays 0)
 %
 % Outputs:
 %   is_CH        — logical vector, 1=elected CH, length N
 %   CH_assign    — cluster assignment vector, CH index for each node, length N
+%                  0 means stranded (no CH within r_tx)
 
 function [is_CH, CH_assign] = elect_ch_proposed(x, y, alive, energy, JR, ...
-    dist_to_BS, E0, d_max, r_c, r_exc, alpha, beta, gamma_, delta)
+    dist_to_BS, E0, d_max, r_c, r_exc, alpha, beta, gamma_, delta, r_tx)
 
     N = length(x);
     is_CH     = false(1, N);
@@ -81,13 +84,17 @@ function [is_CH, CH_assign] = elect_ch_proposed(x, y, alive, energy, JR, ...
     end
 
     %% Step 5 — Cluster Assignment
-    % Each alive non-CH node joins nearest CH
+    % Each alive non-CH node joins nearest CH within r_tx.
+    % Nodes beyond r_tx from every CH are stranded: CH_assign stays 0.
     CH_idx = find(is_CH);
     for i = alive_idx
         if is_CH(i); continue; end
-        dist_to_CHs      = sqrt((x(i) - x(CH_idx)).^2 + (y(i) - y(CH_idx)).^2);
-        [~, nearest]     = min(dist_to_CHs);
-        CH_assign(i)     = CH_idx(nearest);
+        dist_to_CHs       = sqrt((x(i) - x(CH_idx)).^2 + (y(i) - y(CH_idx)).^2);
+        [min_d, nearest]  = min(dist_to_CHs);
+        if min_d <= r_tx
+            CH_assign(i) = CH_idx(nearest);
+        end
+        % else CH_assign(i) remains 0 — stranded node
     end
 
 end
