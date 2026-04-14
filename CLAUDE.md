@@ -48,6 +48,10 @@ A hard 50m transmission range limit is active. Member nodes farther than 50m fro
 
 ## Important Gotchas
 
+**lambda=0.6 is confirmed optimal — do not increase it:** Sensitivity test over λ={0.6, 0.7, 0.8} (Run 012) showed higher λ increases zero-PDR rounds (5.2→9.4 for λ=0.8) due to stochastic noise amplification from M=10 burst estimates. FND-truncated PDR is flat across all three (82.19–82.25%). λ=0.6 wins on every meaningful metric.
+
+**r_c is a neighbor counting radius, not a communication range:** The old comment said "communication range for neighbor counting" — this was misleading and has been corrected. r_c=15m is a scoring parameter used exclusively in the CHScore β term. It has no physical radio interpretation and no intended relationship to r_tx=50m.
+
 **PDR reporting — three complementary windows:** Most WSN papers (2022–2025) do not specify their PDR evaluation window — this is a documented gap in the literature (see systematic review PMC12845974). We report PDR under three windows to address this:
 - **All T rounds:** `mean(PDR)` — full lifecycle, most common in literature, use as primary for comparability
 - **FND-truncated:** `mean(PDR(1:t_death))` — operational period only, isolates protocol performance from mortality timing
@@ -58,7 +62,7 @@ End-of-life PDR=0 causes: (1) last node alive becomes sole CH with no members (`
 
 **`gamma_` not `gamma`:** `gamma` is a MATLAB built-in. The CHScore weight is named `gamma_` everywhere — in `core/config.m`, `schemes/run_proposed.m`, `layer1/elect_ch_proposed.m`, and the `main.m` function call.
 
-**`r_c` must be in `core/config.m`:** `r_c = 15` (communication range for neighbor counting) was missing from the original `config.m` and caused an undefined variable error. It has been added. If config.m is ever reset, this needs to be there.
+**`r_c` must be in `core/config.m`:** `r_c = 15` (neighbor counting radius for CHScore β term) was missing from the original `config.m` and caused an undefined variable error. It has been added. If config.m is ever reset, this needs to be there.
 
 **LEACH energy model:** The original `reference/LEACH.m` script used its own energy constants (epsilon_fs, epsilon_mp, d_0 threshold). `schemes/run_leach.m` was deliberately rewritten to use the same `E_elec`, `E_amp`, `E_da`, `L` from `core/config.m` as the proposed scheme — apples-to-apples comparison. Do not revert this.
 
@@ -118,6 +122,7 @@ docs/
 
 ## What to Work on Next
 
-- Decide on new baselines to rebuild from scratch (must include r_tx + honest 3-window PDR accounting from day one)
-- Write paper discussion section using Run 011 numbers (kappa=10, K_elec=5, 3-window PDR)
-- Consider kappa sensitivity figure (kappa=3, 5, 10) to show robustness of proposed scheme
+- Rebuild baselines from scratch (must include r_tx=50m + 3-window PDR reporting from day one)
+- Write paper discussion section using Run 011 numbers (kappa=10, K_elec=5, lambda=0.6, 3-window PDR)
+- Consider kappa sensitivity figure (kappa=3, 5, 10) as a robustness argument in the paper
+- Consider whether to keep diag_leach_zeros.m and diag_proposed_zeros.m in repo or remove

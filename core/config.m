@@ -30,8 +30,9 @@ M        = 10;                % burst size (packets/round) — gives PDR resolut
                               % 0.1 steps {0, 0.1, ..., 1.0}, enough for smooth EWMA
 p_CH     = 0.05;              % target fraction of nodes to elect as CHs (LEACH standard)
                               % K = round(p_CH * N_alive) computed dynamically each election
-r_c      = 15;                % communication range for neighbor counting (m) — used in
-                              % CHScore beta term to count nodes within range
+r_c      = 15;                % neighbor counting radius (m) — used exclusively in
+                              % CHScore beta term to count nodes within range.
+                              % NOT a radio range limit — purely a scoring parameter.
 r_exc    = 25;                % CH exclusion radius (m) — minimum spatial separation
                               % between elected CHs. Derived: area/K = 2000m^2 per CH,
                               % r = sqrt(2000/pi) ~ 25m. Guarantees spatial spread.

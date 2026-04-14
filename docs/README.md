@@ -85,12 +85,12 @@ See `SIMULATION_LOG.md` for the format — use Run 001 as a template for all sub
 - EWMA smoothing: PDR_ewma = λ·PDR + (1-λ)·PDR_ewma_prev, λ=0.6
 - JR = 1 - PDR_ewma ∈ [0,1]
 
-**2. CH Election (every K_elec=10 rounds)**
+**2. CH Election (every K_elec=5 rounds)**
 - CHScore = α·(E/E0) + β·(|N|/N_max) - γ·JR - δ·(d_BS/d_max)
 - Weights: α=0.35, β=0.20, γ=0.35, δ=0.10
 - Dynamic K = round(0.05 × N_alive) CHs elected per round
 - Greedy spatial election with r_exc=25m exclusion radius
-- `r_c=15m` — **neighbor counting range only** (see note below)
+- `r_c=15m` — **neighbor counting radius only, not a radio range limit** (see note below)
 
 **3. Inter-Cluster Routing**
 - Path cost: C(i,j,t) = φ1 + φ2·ε_amp·L·d²(i,j) + φ3·JR_j
@@ -152,24 +152,24 @@ The limit is intentionally generous to avoid artificially penalising healthy-rou
 With 5 CHs spread across 10,000 m², the average inter-CH distance is ~45m. A jamming radius of 20m ensures the jammer can cover at most one full CH coverage zone per round, making jamming a meaningful but not overwhelming threat. At r_j = 20m, packet success at the jamming center drops to:
 
 ```
-p = p_base × exp(−kappa) = 0.95 × e^{−3} ≈ 0.047
+p = p_base × exp(−kappa) = 0.95 × e^{−10} ≈ 0.00004
 ```
 
-So a node directly under the UAV delivers roughly 0–1 out of 10 packets per round.
+So a node directly under the UAV delivers effectively 0 out of 10 packets per round — near-total blackout at the jammer center.
 
-### r_c — Neighbor Counting Range
+### r_c — Neighbor Counting Radius
 
-`r_c = 15m` is used **only** in `elect_ch_proposed.m` to count how many alive nodes are within communication range of a candidate CH (the β connectivity term in CHScore). It is **not** a radio range limit for data transmission.
+`r_c = 15m` is used **only** in `elect_ch_proposed.m` to count how many alive nodes fall within a fixed radius of a candidate CH — this count feeds the β connectivity term in CHScore. It is **not** a radio range limit, a communication range, or a transmission constraint of any kind. The label "communication range" that appeared in earlier comments was misleading and has been corrected.
 
-The value 15m is smaller than r_exc (25m) by design — it counts only close neighbors, giving the β term sensitivity to local density without double-counting nodes already covered by adjacent CHs.
+The value 15m is smaller than r_exc (25m) by design — it counts only close neighbors, giving the β term sensitivity to local density without double-counting nodes already covered by adjacent CHs. r_c and r_tx (50m) serve completely different purposes and there is no intended relationship between their values.
 
 ---
 
 ## Radio Range — Important Modeling Note
 
-`r_c = 15m` is used **only** for counting neighbors in the CHScore beta term. It is **not** a hard radio range limit.
+`r_c = 15m` is used **only** as a neighbor counting radius in the CHScore β term. It is **not** a hard radio range limit. The two values (r_c=15m, r_tx=50m) are derived independently and serve completely different purposes — no relationship between them is intended or implied.
 
-`r_tx = 50m` is the hard transmission range limit added in Run 007. Member nodes beyond 50m from every CH are stranded — they cannot join any cluster and their packets count as lost. This is the only range check in the simulation.
+`r_tx = 50m` is the hard transmission range limit. Member nodes beyond 50m from every CH are stranded — they cannot join any cluster and their packets count as lost. This is the only range check in the simulation.
 
 Cluster assignment (`elect_ch_proposed.m`) joins every alive non-CH node to its nearest CH within `r_tx`. Members beyond `r_tx` from all CHs get `CH_assign = 0`. The d² energy model additionally penalizes long links within the reachable set.
 
@@ -232,10 +232,11 @@ A survey of recent WSN simulation literature (2022–2025) found that **most pap
 
 | Component | Status |
 |---|---|
-| Proposed scheme (`run_proposed.m`) | Done — r_tx active |
-| Standard LEACH baseline (`run_leach.m`) | Done — r_tx active |
+| Proposed scheme (`run_proposed.m`) | Done — r_tx=50m, K_elec=5, kappa=10 |
+| Standard LEACH baseline (`run_leach.m`) | Done — r_tx=50m, kappa=10 |
 | Multi-seed averaging (`run_multiseed.m`) | Done — Proposed + LEACH, 3-window PDR reporting |
 | Network snapshot visualization | Done — shows stranded nodes as yellow diamonds |
+| Lambda sensitivity (`run_lambda_sensitivity.m`) | Done — λ={0.6,0.7,0.8} tested; λ=0.6 confirmed optimal |
 | Paper writing | In progress — PDR evaluation methodology decided (3-window approach) |
 
 ## Baseline

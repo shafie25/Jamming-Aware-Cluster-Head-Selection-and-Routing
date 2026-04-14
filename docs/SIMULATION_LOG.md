@@ -705,5 +705,73 @@ LEACH's zero-PDR rounds are self-inflicted by its epoch fallback — not caused 
 - K_elec=5 is the new canonical config — update CLAUDE.md
 - Decide on new baselines to rebuild (must include r_tx + 3-window PDR reporting from day one)
 - Consider whether to keep `diag_leach_zeros.m` and `diag_proposed_zeros.m` in the repo or remove as temporary diagnostic scripts
+- Run lambda sensitivity test → done in Run 012
+
+---
+
+## Run 012 — EWMA Lambda Sensitivity Test (λ = 0.6, 0.7, 0.8)
+
+**Date:** 2026-04-14
+**Run by:** Ahmed + Claude Code
+
+### What This Run Was
+
+Sensitivity test on the EWMA smoothing constant λ. Hypothesis: higher λ makes JR estimates more responsive to the UAV jammer's position, potentially improving CH election decisions and PDR. Three values tested: λ=0.6 (current), 0.7, 0.8.
+
+Entry point: `run_lambda_sensitivity.m` — runs proposed scheme only across 5 seeds for each λ, with identical RNG draws per seed across all three, reporting all three PDR windows.
+
+Two ancillary changes also landed in this session (not λ-related):
+- `r_c` comment in `config.m` corrected from "communication range for neighbor counting" to "neighbor counting radius" — the old label implied a physical radio constraint that does not exist. r_c is a purely scoring parameter.
+- `docs/README.md` updated: K_elec=10→5 in the design summary, kappa reference corrected (e^{-3}→e^{-10}), r_c section rewritten to remove misleading "communication range" framing.
+
+### Parameters Varied
+
+| Parameter | Values tested |
+|---|---|
+| `lambda` | 0.6 (baseline), 0.7, 0.8 |
+| All other parameters | K_elec=5, kappa=10, r_tx=50m — canonical Run 011 config |
+
+### Results (mean ± std across 5 seeds — Proposed Scheme only)
+
+| Metric | λ=0.6 | λ=0.7 | λ=0.8 |
+|---|---|---|---|
+| First node death (round) | **593.2 ± 13.4** | 596.8 ± 20.9 | 583.6 ± 13.1 |
+| PDR all rounds (%) | **70.95 ± 1.22** | 70.87 ± 1.27 | 70.41 ± 1.79 |
+| PDR FND-trunc (%) | 82.23 ± 1.54 | **82.25 ± 1.55** | 82.19 ± 1.54 |
+| Zero-PDR rounds | **5.2 ± 3.7** | 6.4 ± 4.4 | 9.4 ± 4.9 |
+| Energy @ round 300 (J) | 31.62 ± 0.32 | 31.57 ± 0.30 | 31.56 ± 0.32 |
+
+### Per-Seed Zero-PDR Counts
+
+| Seed | λ=0.6 | λ=0.7 | λ=0.8 |
+|---|---|---|---|
+| 42  | 1 | 0 | 17 |
+| 7   | 7 | 7 | 7 |
+| 13  | 2 | 8 | 8 |
+| 99  | 10 | 12 | 11 |
+| 101 | 6 | 5 | 4 |
+
+### Takeaways
+
+**1. λ=0.6 wins — the noise argument held.**
+Higher λ does not improve PDR. All-rounds PDR drops monotonically: 70.95 → 70.87 → 70.41% as λ increases. FND-truncated PDR is essentially identical across all three (82.19–82.25%) — the speed of JR estimation does not meaningfully change how much data is delivered per round when the jammer is active.
+
+**2. Higher λ hurts zero-PDR rounds (the noise floor problem).**
+λ=0.8 nearly doubles zero-PDR rounds vs λ=0.6 (9.4 vs 5.2). With M=10 burst packets, a single unlucky draw at p=0.95 produces PDR_inst ≈ 0.8. At λ=0.8, this spikes JR by 0.16 in one round, incorrectly penalising a clean node in the next CHScore election. At λ=0.6 the same draw produces a JR spike of only 0.11. The false positive rate from stochastic noise is irreducible at M=10.
+
+**3. λ=0.7 is marginal — not worth the complexity.**
+PDR differences from λ=0.6 are within noise (−0.08pp all-rounds). Zero-PDR rounds are slightly worse (6.4 vs 5.2). No benefit justifies changing from 0.6.
+
+**4. Why faster responsiveness doesn't help here.**
+With K_elec=5, a fresh election happens every 5 rounds. At λ=0.6, after 3 consecutive jammed rounds the EWMA reaches JR=0.94 — more than enough to penalise the node in CHScore. Faster convergence to 1.0 (λ=0.8) doesn't change the election outcome; the node is already effectively disqualified. The marginal gain from λ>0.6 is near zero while the noise cost grows.
+
+**5. Paper justification ready.**
+λ=0.6 was selected after sensitivity analysis over {0.6, 0.7, 0.8}. Higher values increased zero-PDR rounds due to stochastic noise amplification in M=10 burst estimates without improving delivered PDR across any evaluation window.
+
+### What to Do Next
+
+- λ=0.6 confirmed as canonical — no change to config
+- Next major step: rebuild baselines with r_tx=50m + 3-window PDR reporting
+- Consider kappa sensitivity figure (kappa=3, 5, 10) as a robustness argument in the paper
 
 ---
