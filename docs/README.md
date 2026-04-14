@@ -54,11 +54,8 @@ See `SIMULATION_LOG.md` for the format — use Run 001 as a template for all sub
 | `layer2/route_dijkstra.m` | Builds inter-cluster graph, runs Dijkstra with C(i,j,t) (Eq. 7, 8) |
 | `schemes/run_proposed.m` | Proposed scheme round loop |
 | `schemes/run_leach.m` | Standard LEACH baseline round loop |
-| `schemes/run_ewma_detect.m` | Baseline 1: LEACH + EWMA detection (unused) |
-| `schemes/run_threshold.m` | Baseline 2: LEACH + member suppression when JR > 0.70 |
-| `schemes/run_reactive_ch.m` | Baseline 3: LEACH + reactive CH re-election when CH JR > 0.50 |
 | `main.m` | Single-seed entry point |
-| `run_multiseed.m` | 5-seed averaging entry point (currently Proposed + LEACH only) |
+| `run_multiseed.m` | 5-seed averaging entry point — Proposed + LEACH, 3-window PDR |
 | `plotting/plot_results.m` | 4-panel results figure (single seed) |
 | `plotting/plot_multiseed.m` | Mean ± std band plots (multi-seed) |
 | `plotting/visualize_snapshot.m` | 2D network map at a specific round (clusters, JR, routing, stranded nodes) |
@@ -146,7 +143,7 @@ Setting `r_tx = 50m ≈ 2.2 × avg_nearest` means:
 
 The limit is intentionally generous to avoid artificially penalising healthy-round PDR. Its primary effect is in the network degradation phase.
 
-**Stranded node accounting:** Stranded nodes (CH_assign = 0) skip all transmission. Their M packets are added to `total_sent` with zero contribution to `total_recv` — honest PDR accounting consistent with the threshold suppression approach in run_threshold.m.
+**Stranded node accounting:** Stranded nodes (CH_assign = 0) skip all transmission. Their M packets are added to `total_sent` with zero contribution to `total_recv` — honest PDR accounting.
 
 ### r_j — Jamming Radius
 
@@ -195,6 +192,29 @@ Cluster assignment (`elect_ch_proposed.m`) joins every alive non-CH node to its 
 - **alive(t)** — number of alive nodes
 - **t_death** — round number of first node death (network lifetime metric)
 
+### PDR Metric Reporting — Three Complementary Evaluation Windows
+
+The final rounds of every run produce PDR=0 due to network collapse (last surviving node becomes sole CH with no members, jamming wipes all packets in a small network, or all non-CH nodes stranded beyond `r_tx`). These rounds are physically real and should not be silently excluded — but they must be reported with a clearly defined evaluation window.
+
+A survey of recent WSN simulation literature (2022–2025) found that **most papers do not specify their PDR evaluation window**, reporting a single aggregate number without documenting whether it spans all rounds or stops at node death. A systematic review of jamming WSN papers explicitly flags this as a *"persistent methodological challenge"* [[PMC12845974](https://pmc.ncbi.nlm.nih.gov/articles/PMC12845974/)]. We address this gap by reporting PDR under three complementary windows:
+
+| Window | Formula | What it captures |
+|---|---|---|
+| **All T rounds** | `mean(PDR)` | Full lifecycle including collapse phase — most common in literature |
+| **FND-truncated** | `mean(PDR(1:t_death))` | Operational period only — isolates protocol performance from mortality timing |
+| **Zero-PDR round count** | `sum(PDR == 0)` | Communication blackout duration under active jamming — reliability metric |
+
+**Why three windows:** Reporting only all-round PDR disadvantages protocols with longer lifetimes (more late degraded rounds in the denominator). Reporting only FND-truncated hides end-of-life behaviour. Zero-PDR round count is the most direct measure of jamming impact and does not require a normalisation decision.
+
+**Paper framing (ready to use):**
+> *"Many existing studies report a single aggregate PDR value without specifying the evaluation window relative to node lifetime, limiting reproducibility [1]. We report PDR under three complementary windows: (1) over all T rounds, capturing full-lifecycle behaviour; (2) truncated at the first node death event, isolating protocol-level performance from differential mortality timing; and (3) as zero-PDR round count — rounds of complete communication blackout under active jamming, a reliability metric directly relevant to adversarial WSN deployments."*
+
+**References used to motivate this approach:**
+- [[PMC12845974](https://pmc.ncbi.nlm.nih.gov/articles/PMC12845974/)] — Systematic Review and Energy-Centric Taxonomy of Jamming Attacks in WSNs (2026): identifies heterogeneous evaluation methodology as an open gap
+- [[PMC11946738](https://pmc.ncbi.nlm.nih.gov/articles/PMC11946738/)] — Adaptive Jamming Mitigation for Clustered LoRa-BLE Hybrid WSNs (2025): reports PDR without evaluation window specification
+- [[PMC11541757](https://pmc.ncbi.nlm.nih.gov/articles/PMC11541757/)] — Neural Network LEACH Protocol (2024): averages PDR over all simulation rounds without truncation
+- [[PMC12473488](https://pmc.ncbi.nlm.nih.gov/articles/PMC12473488/)] — Quantum-Inspired Clustering for Energy-Efficient WSNs (2025): PDR window undocumented
+
 ---
 
 ## Variable Naming Conventions
@@ -214,21 +234,15 @@ Cluster assignment (`elect_ch_proposed.m`) joins every alive non-CH node to its 
 |---|---|
 | Proposed scheme (`run_proposed.m`) | Done — r_tx active |
 | Standard LEACH baseline (`run_leach.m`) | Done — r_tx active |
-| Baseline 1 — EWMA Detection (`run_ewma_detect.m`) | Done — **r_tx not yet added** |
-| Baseline 2 — Threshold-JR (`run_threshold.m`) | Done — **r_tx not yet added** |
-| Baseline 3 — Reactive-CH (`run_reactive_ch.m`) | Done — **r_tx not yet added** |
-| Multi-seed averaging (`run_multiseed.m`) | Done — 2 schemes only until baselines updated |
+| Multi-seed averaging (`run_multiseed.m`) | Done — Proposed + LEACH, 3-window PDR reporting |
 | Network snapshot visualization | Done — shows stranded nodes as yellow diamonds |
-| Paper writing | In progress |
+| Paper writing | In progress — PDR evaluation methodology decided (3-window approach) |
 
-## Baselines
+## Baseline
 
 | Scheme | File | Design summary |
 |---|---|---|
 | Standard LEACH | `run_leach.m` | Probabilistic CH election, direct CH→BS, no jamming awareness |
-| EWMA-Detect | `run_ewma_detect.m` | LEACH + EWMA JR tracking — detection computed but never used in decisions |
-| Threshold-JR | `run_threshold.m` | LEACH + member transmission suppressed when JR > 0.70 |
-| Reactive-CH | `run_reactive_ch.m` | LEACH + reactive CH re-election when elected CH JR > 0.50 |
 
 ---
 

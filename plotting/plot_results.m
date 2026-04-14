@@ -12,10 +12,7 @@ function plot_results(results_all, T)
     % Colorblind-friendly palette matching plot_multiseed.m
     colors = {
         [0.18, 0.45, 0.69], ...   % blue   — Proposed
-        [0.80, 0.15, 0.15], ...   % red    — LEACH
-        [0.20, 0.63, 0.17], ...   % green  — EWMA-Detect
-        [0.89, 0.47, 0.10], ...   % orange — Threshold-JR
-        [0.56, 0.12, 0.71]  ...   % purple — Reactive-CH
+        [0.80, 0.15, 0.15]  ...   % red    — LEACH
     };
     n_schemes = length(results_all);
 

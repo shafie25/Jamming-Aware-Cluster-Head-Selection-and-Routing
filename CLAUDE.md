@@ -11,15 +11,12 @@ RNG seed is fixed at `rng(42)` in `main.m` — all schemes see the identical net
 
 ---
 
-## Current State (as of 2026-04-12)
+## Current State (as of 2026-04-14, Run 010)
 
-### Implemented — All Schemes Complete
+### Implemented
 - `schemes/run_proposed.m` — proposed scheme: JR-aware CHScore election + Dijkstra routing
 - `schemes/run_leach.m` — standard LEACH: probabilistic CH election, direct CH→BS
-- `schemes/run_ewma_detect.m` — Baseline 1: LEACH + EWMA tracking (detection unused)
-- `schemes/run_threshold.m` — Baseline 2: LEACH + member suppression when JR > 0.70
-- `schemes/run_reactive_ch.m` — Baseline 3: LEACH + reactive CH re-election when CH JR > 0.50
-- `run_multiseed.m` — 5-seed averaging entry point (currently Proposed + LEACH only — see note)
+- `run_multiseed.m` — 5-seed averaging, Proposed + LEACH, 3-window PDR reporting
 - `plotting/plot_multiseed.m` — mean ± std band plots
 - `plotting/visualize_snapshot.m` — 2D network map with stranded node visualization
 
@@ -28,35 +25,34 @@ RNG seed is fixed at `rng(42)` in `main.m` — all schemes see the identical net
 - `run_multiseed.m` — 5-seed average, final reported results
 
 ### Active Model: r_tx = 50m transmission range limit
-As of Run 007, a hard 50m transmission range limit is active. Member nodes farther than 50m from every CH are stranded — their packets count as lost in the PDR denominator. This applies to both Proposed and LEACH. The 3 baselines have not yet been updated with r_tx.
+A hard 50m transmission range limit is active. Member nodes farther than 50m from every CH are stranded — their packets count as lost in the PDR denominator. Applies to both Proposed and LEACH.
 
 ---
 
-## Current Best Results (Run 007 — Proposed vs LEACH, r_tx=50m, 5-seed average)
+## Current Best Results (Run 010 — kappa=10, r_tx=50m, 5-seed average)
 
 | Metric | Proposed | LEACH |
 |---|---|---|
-| First node death (round) | 581.0 ± 23.0 | 718.2 ± 28.7 |
-| PDR mean (%) | **73.81 ± 1.72** | 64.54 ± 0.46 |
-| Energy @ round 300 (J) | 31.64 ± 0.24 | 32.34 ± 1.08 |
-| Zero-PDR rounds | **13.6 ± 2.8** | 155.0 ± 23.9 |
+| First node death (round) | 597.2 ± 26.8 | 728.0 ± 34.1 |
+| PDR all rounds (%) | **71.03 ± 1.23** | 62.74 ± 0.63 |
+| PDR FND-trunc (%) | **82.49 ± 1.13** | 72.40 ± 2.27 |
+| Zero-PDR rounds | **9.8 ± 7.3** | 136.6 ± 28.4 |
+| Energy @ round 300 (J) | 31.64 ± 0.29 | 32.72 ± 1.23 |
 
-**Headline:** Proposed delivers +9.3pp PDR over LEACH and 11× fewer zero-PDR rounds under r_tx=50m.
+**Headline:** Proposed delivers +8.3pp PDR (all rounds), +10.1pp PDR (FND-truncated), and 14× fewer zero-PDR rounds over LEACH under kappa=10 jamming.
 
-## Pre-r_tx Results (Run 005 — All 5 Schemes, no range limit — reference only)
+**Key trade-off:** Proposed dies 131 rounds earlier (597 vs 728) due to relay CH energy concentration in multi-hop routing — but delivers more per round while alive. FND-truncated PDR gap (+10.1pp) is wider than all-rounds gap (+8.3pp), confirming the advantage holds within the operational window.
 
-| Metric | Proposed | LEACH | EWMA-Detect | Threshold-JR | Reactive-CH |
-|---|---|---|---|---|---|
-| First node death (round) | 394.0 ± 86.6 | 432.0 ± 34.0 | 413.8 ± 23.6 | 414.4 ± 22.4 | 401.8 ± 25.4 |
-| PDR mean (%) | **81.63 ± 3.46** | 58.99 ± 1.02 | 58.96 ± 1.87 | 60.25 ± 1.90 | 58.70 ± 1.56 |
-| Energy @ round 300 (J) | **30.42 ± 0.73** | 26.92 ± 1.03 | 26.06 ± 1.07 | 27.50 ± 0.99 | 26.29 ± 0.43 |
-| Zero-PDR rounds | **78.2 ± 37.4** | 330.8 ± 11.7 | 330.2 ± 19.3 | 308.6 ± 20.3 | 330.6 ± 17.4 |
 
 ---
 
 ## Important Gotchas
 
-**PDR reporting:** Always report mean separately for all-rounds vs active-rounds-only. The `min(PDR(PDR>0))` filter hides zero-PDR rounds — be explicit about this when comparing metrics.
+**PDR reporting — three complementary windows:** Most WSN papers (2022–2025) do not specify their PDR evaluation window — this is a documented gap in the literature (see systematic review PMC12845974). We report PDR under three windows to address this:
+- **All T rounds:** `mean(PDR)` — full lifecycle, most common in literature, use as primary for comparability
+- **FND-truncated:** `mean(PDR(1:t_death))` — operational period only, isolates protocol performance from mortality timing
+- **Zero-PDR round count:** `sum(PDR == 0)` — communication blackout duration under jamming, most direct adversarial reliability metric
+End-of-life PDR=0 causes: (1) last node alive becomes sole CH with no members (`total_sent=0`), (2) jammer wipes all packets with 1–2 members remaining, (3) all non-CH nodes stranded beyond `r_tx`. These are not bugs — they are physically real. The three-window approach is the honest response. See README for paper phrasing and full source list.
 
 **M=10 granularity:** With 10 packets per burst, PDR resolution per single node is 0.1. When the network shrinks to 1–2 nodes, per-round PDR snaps to {0, 0.1, 0.2, ...}. This is expected, not a bug.
 
@@ -74,9 +70,6 @@ As of Run 007, a hard 50m transmission range limit is active. Member nodes farth
 
 **`r_exc` is derived, not arbitrary:** `r_exc = 25m` comes from the formula `sqrt(area² / (p_CH × N × π))`. At p_CH=0.05, K=5 CHs, area per CH = 2000m², r_exc = sqrt(2000/π) ≈ 25m. If p_CH is ever changed, r_exc must be updated consistently — or replaced with the dynamic formula `r_exc = sqrt(area^2 / (p_CH * N * pi))` in config.m.
 
-**Baselines not updated with r_tx:** `run_ewma_detect.m`, `run_threshold.m`, `run_reactive_ch.m` do not have the r_tx range limit or stranded node accounting. Do not run them in multi-seed comparisons with the proposed scheme and LEACH until they are updated.
-
-**run_multiseed.m is currently 2-scheme only:** After Run 007, `run_multiseed.m` was trimmed to Proposed + LEACH. To restore all 5 schemes, the baselines need r_tx updates first.
 
 ---
 
@@ -110,9 +103,6 @@ layer2/
 schemes/
   run_proposed.m             ← proposed scheme round loop
   run_leach.m                ← standard LEACH baseline round loop
-  run_ewma_detect.m          ← Baseline 1: LEACH + EWMA detection (unused)
-  run_threshold.m            ← Baseline 2: LEACH + member suppression (JR > 0.70)
-  run_reactive_ch.m          ← Baseline 3: LEACH + reactive CH re-election (JR > 0.50)
 plotting/
   plot_results.m             ← 4-panel results figure
   plot_multiseed.m           ← mean ± std band plots (multi-seed)
@@ -128,6 +118,6 @@ docs/
 
 ## What to Work on Next
 
-- Dynamic p_CH: scale CH density up as N_alive drops (0.05 at full network → higher in late rounds) to reduce stranded nodes without paying overhead cost in healthy rounds
-- Update baselines (run_ewma_detect, run_threshold, run_reactive_ch) with r_tx so full 5-scheme comparison can be run under the range limit
-- Write paper discussion section — use Run 007 numbers if r_tx is kept as the model, Run 005 numbers if reverting to no range limit
+- Decide on new baselines to rebuild from scratch (must include r_tx + honest 3-window PDR accounting from day one)
+- Write paper discussion section using Run 010 numbers (kappa=10, 3-window PDR)
+- Consider kappa sensitivity figure (kappa=3, 5, 10) to show robustness of proposed scheme

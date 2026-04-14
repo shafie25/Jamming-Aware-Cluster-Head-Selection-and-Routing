@@ -17,8 +17,8 @@ E0       = 0.5;               % initial energy per node (J) — 0.5J gives meani
 % r_j sized so jammer threatens 1-2 CHs per round, not zero and not all.
 % With 5 CHs over 100x100m, 20m radius is the sweet spot.
 r_j      = 20;                % jamming radius (m)
-kappa    = 3;                 % jamming decay constant (unitless) — at boundary:
-                              % no effect. At center: p drops to p_base*e^{-3} ~ 0.05
+kappa    = 10;                 % jamming decay constant (unitless) — at boundary:
+                              % no effect. At center: p drops to p_base*e^{-10} ~ 0.00004
 p_base   = 0.95;              % baseline packet success probability outside jamming (unitless)
 
 %% Round Control

@@ -14,13 +14,10 @@ function plot_multiseed(results_all, T)
     rounds    = 1:T;
     n_schemes = length(results_all);
 
-    % Colorblind-friendly palette (blue, red, green, orange, purple)
+    % Colorblind-friendly palette
     colors = {
-        [0.18, 0.45, 0.69], ...   % blue   — Proposed
-        [0.80, 0.15, 0.15], ...   % red    — LEACH
-        [0.20, 0.63, 0.17], ...   % green  — EWMA-Detect
-        [0.89, 0.47, 0.10], ...   % orange — Threshold-JR
-        [0.56, 0.12, 0.71]  ...   % purple — Reactive-CH
+        [0.18, 0.45, 0.69], ...   % blue — Proposed
+        [0.80, 0.15, 0.15]  ...   % red  — LEACH
     };
 
     figure('Position', [100, 100, 1400, 900]);

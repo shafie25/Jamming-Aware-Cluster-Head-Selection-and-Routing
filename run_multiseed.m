@@ -66,19 +66,19 @@ fprintf('\n\n========================================\n');
 fprintf('Multi-Seed Results (seeds: %s)\n', num2str(seeds));
 fprintf('========================================\n\n');
 
-fprintf('%-16s | %-20s | %-20s\n', 'Metric', scheme_names{:});
-fprintf('%s\n', repmat('-',1,62));
+fprintf('%-22s | %-20s | %-20s\n', 'Metric', scheme_names{:});
+fprintf('%s\n', repmat('-',1,68));
 
 % First node death
-fprintf('%-16s |', 'First death (rnd)');
+fprintf('%-22s |', 'First death (rnd)');
 for k = 1:n_schemes
     td = tdeath(:,k);
     fprintf(' %6.1f +/- %5.1f      |', mean(td,'omitnan'), std(td,'omitnan'));
 end
 fprintf('\n');
 
-% PDR mean (all rounds)
-fprintf('%-16s |', 'PDR mean (%)');
+% --- PDR Window 1: All T rounds ---
+fprintf('%-22s |', 'PDR all rounds (%)');
 for k = 1:n_schemes
     fd = scheme_fields{k};
     pm = mean(store.PDR.(fd), 2) * 100;
@@ -86,24 +86,41 @@ for k = 1:n_schemes
 end
 fprintf('\n');
 
-% Energy @ round 300
-fprintf('%-16s |', 'Energy@r300 (J)');
+% --- PDR Window 2: FND-truncated (rounds 1 to first node death) ---
+fprintf('%-22s |', 'PDR FND-trunc (%)');
 for k = 1:n_schemes
     fd = scheme_fields{k};
-    em = store.energy.(fd)(:,300);
-    fprintf(' %6.2f +/- %5.2f      |', mean(em), std(em));
+    pm_fnd = zeros(n_seeds, 1);
+    for s = 1:n_seeds
+        td = tdeath(s, k);
+        if ~isnan(td) && td >= 1
+            pm_fnd(s) = mean(store.PDR.(fd)(s, 1:round(td))) * 100;
+        else
+            pm_fnd(s) = mean(store.PDR.(fd)(s, :)) * 100;
+        end
+    end
+    fprintf(' %6.2f +/- %5.2f      |', mean(pm_fnd), std(pm_fnd));
 end
 fprintf('\n');
 
-% Zero-PDR rounds
-fprintf('%-16s |', 'Zero-PDR rounds');
+% --- PDR Window 3: Zero-PDR round count (communication blackout) ---
+fprintf('%-22s |', 'Zero-PDR rounds');
 for k = 1:n_schemes
     fd = scheme_fields{k};
     zp = sum(store.PDR.(fd) == 0, 2);
     fprintf(' %6.1f +/- %5.1f      |', mean(zp), std(zp));
 end
 fprintf('\n');
-fprintf('%s\n', repmat('-',1,62));
+
+% Energy @ round 300
+fprintf('%-22s |', 'Energy@r300 (J)');
+for k = 1:n_schemes
+    fd = scheme_fields{k};
+    em = store.energy.(fd)(:,300);
+    fprintf(' %6.2f +/- %5.2f      |', mean(em), std(em));
+end
+fprintf('\n');
+fprintf('%s\n', repmat('-',1,68));
 
 %% Build structs for plotting
 ms = cell(1, n_schemes);
