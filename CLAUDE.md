@@ -11,7 +11,7 @@ RNG seed is fixed at `rng(42)` in `main.m` — all schemes see the identical net
 
 ---
 
-## Current State (as of 2026-04-14, Run 010)
+## Current State (as of 2026-04-14, Run 011)
 
 ### Implemented
 - `schemes/run_proposed.m` — proposed scheme: JR-aware CHScore election + Dijkstra routing
@@ -29,19 +29,19 @@ A hard 50m transmission range limit is active. Member nodes farther than 50m fro
 
 ---
 
-## Current Best Results (Run 010 — kappa=10, r_tx=50m, 5-seed average)
+## Current Best Results (Run 011 — kappa=10, r_tx=50m, K_elec=5, 5-seed average)
 
 | Metric | Proposed | LEACH |
 |---|---|---|
-| First node death (round) | 597.2 ± 26.8 | 728.0 ± 34.1 |
-| PDR all rounds (%) | **71.03 ± 1.23** | 62.74 ± 0.63 |
-| PDR FND-trunc (%) | **82.49 ± 1.13** | 72.40 ± 2.27 |
-| Zero-PDR rounds | **9.8 ± 7.3** | 136.6 ± 28.4 |
-| Energy @ round 300 (J) | 31.64 ± 0.29 | 32.72 ± 1.23 |
+| First node death (round) | 593.2 ± 13.4 | 712.8 ± 35.9 |
+| PDR all rounds (%) | **70.95 ± 1.22** | 62.02 ± 0.82 |
+| PDR FND-trunc (%) | **82.23 ± 1.54** | 71.37 ± 4.67 |
+| Zero-PDR rounds | **5.2 ± 3.7** | 163.0 ± 18.3 |
+| Energy @ round 300 (J) | 31.62 ± 0.32 | 32.21 ± 1.62 |
 
-**Headline:** Proposed delivers +8.3pp PDR (all rounds), +10.1pp PDR (FND-truncated), and 14× fewer zero-PDR rounds over LEACH under kappa=10 jamming.
+**Headline:** Proposed delivers +8.9pp PDR (all rounds), +10.9pp PDR (FND-truncated), and 31× fewer zero-PDR rounds over LEACH under kappa=10 jamming.
 
-**Key trade-off:** Proposed dies 131 rounds earlier (597 vs 728) due to relay CH energy concentration in multi-hop routing — but delivers more per round while alive. FND-truncated PDR gap (+10.1pp) is wider than all-rounds gap (+8.3pp), confirming the advantage holds within the operational window.
+**Key trade-off:** Proposed dies 120 rounds earlier (593 vs 713) due to relay CH energy concentration in multi-hop routing — but delivers more per round while alive. FND-truncated PDR gap (+10.9pp) is wider than all-rounds gap (+8.9pp), confirming the advantage holds within the operational window.
 
 
 ---
@@ -119,5 +119,5 @@ docs/
 ## What to Work on Next
 
 - Decide on new baselines to rebuild from scratch (must include r_tx + honest 3-window PDR accounting from day one)
-- Write paper discussion section using Run 010 numbers (kappa=10, 3-window PDR)
+- Write paper discussion section using Run 011 numbers (kappa=10, K_elec=5, 3-window PDR)
 - Consider kappa sensitivity figure (kappa=3, 5, 10) to show robustness of proposed scheme

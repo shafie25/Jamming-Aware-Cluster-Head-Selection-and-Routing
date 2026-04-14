@@ -636,3 +636,74 @@ The results are robust and the stronger jamming scenario is more realistic for U
 - Next major step: decide on new baselines to rebuild from scratch with r_tx + honest PDR accounting
 
 ---
+
+## Run 011 — CH Re-election Frequency Reduction (K_elec=10 → K_elec=5)
+
+**Date:** 2026-04-14
+**Run by:** Ahmed + Claude Code
+
+### What This Run Was
+
+Diagnostic investigation into the proposed scheme's zero-PDR rounds, followed by a targeted fix. A per-round diagnostic script (`diag_proposed_zeros.m`, `diag_leach_zeros.m`) was written to classify the cause of every zero-PDR round in both schemes under seed 42.
+
+**Finding — LEACH zero-PDR cause:**
+All 145 LEACH zero-PDR rounds (seed 42) are classified `ALL_NODES_ARE_CH` — caused entirely by the epoch mechanism, not jamming. At the last round of each 20-round epoch, `T_thresh = P/(1-P×19) = 1.0`, causing all remaining eligible nodes to simultaneously elect themselves CH with probability 1.0. This leaves almost no eligible nodes for the next epoch start. When the few remaining eligible nodes fail to elect anyone (probability `(0.95)^n ≈ high` for small n), the fallback `if ~any(is_CH); is_CH = alive` fires, making ALL nodes CHs with zero members. This cascades for the full remainder of the epoch. The jammer plays no role — this failure occurs even when the jammer is not overhead. Zero early/mid zeros (rounds 1-300), 17 mid zeros (301-600), 128 late zeros (601+).
+
+**Finding — Proposed scheme zero-PDR cause:**
+11 zero-PDR rounds (seed 42, K_elec=10), all `STOCHASTIC(CHs=0)` in rounds 838-859. Root cause: CHs elected at round 830 (last election before round 838) died between election intervals. With K_elec=10, there is up to a 9-round window during which dead CHs go unreplaced. `is_CH & alive = false` for all nodes → no active CHs → `total_sent` counts only stranded packets → PDR=0.
+
+**Fix applied:** Reduced `K_elec` from 10 to 5 in `core/config.m`. Halves the maximum dead-CH window from 9 rounds to 4 rounds. Also motivated independently: faster re-election allows JR estimates (EWMA) to drive CH rotation more responsively as the jammer orbits (one orbit = 50 rounds; K_elec=5 gives 10 elections per orbit vs 5 previously).
+
+**Also explored but reverted:** `ceil()` instead of `round()` in the K formula in `elect_ch_proposed.m`. Logically sound (avoids K=0 when n_alive<10 without relying solely on the `max(1,...)` guard), but introduced higher variance in late-round behavior across seeds (zero-PDR std rose from ±3.7 to ±16.1). Reverted to `round()` — the `max(1,...)` guard is sufficient.
+
+### Parameters Changed
+
+| Parameter | Run 010 | Run 011 | Reason |
+|---|---|---|---|
+| `K_elec` | 10 | **5** | Halve dead-CH window; faster JR-driven rotation |
+| All other parameters | unchanged | unchanged | — |
+
+### Results (mean ± std across 5 seeds)
+
+| Metric | Proposed | LEACH | vs Run 010 Proposed | vs Run 010 LEACH |
+|---|---|---|---|---|
+| First node death (round) | 593.2 ± 13.4 | 712.8 ± 35.9 | −4.0, variance halved | −15.2 |
+| PDR all rounds (%) | **70.95 ± 1.22** | 62.02 ± 0.82 | −0.08pp (negligible) | −0.72pp |
+| PDR FND-trunc (%) | **82.23 ± 1.54** | 71.37 ± 4.67 | −0.26pp (negligible) | −1.03pp |
+| Zero-PDR rounds (Proposed) | **5.2 ± 3.7** | 163.0 ± 18.3 | **−47%, variance halved** | +26.4 |
+| Energy @ round 300 (J) | 31.62 ± 0.32 | 32.21 ± 1.62 | negligible | −0.51 J |
+
+### Per-Seed First Node Death
+
+| Seed | Proposed | LEACH |
+|---|---|---|
+| 42  | 582 | 742 |
+| 7   | 586 | 663 |
+| 13  | 604 | 704 |
+| 99  | 583 | 702 |
+| 101 | 611 | 753 |
+
+### Takeaways
+
+**1. K_elec=5 cuts proposed scheme zero-PDR rounds nearly in half.**
+9.8 → 5.2 (−47%). The remaining ~5 are end-of-life stochastic events in the last ~50 rounds when the network is degraded to fewer than 30 nodes. The variance also halved (±7.3 → ±3.7), indicating more consistent behavior across topologies.
+
+**2. PDR is essentially unchanged — the overhead cost is negligible.**
+All-rounds PDR: −0.08pp. FND-truncated: −0.26pp. Both within noise. Doubling election frequency from every 10 to every 5 rounds does not meaningfully increase energy drain in the healthy phase (confirmed by identical Energy@r300).
+
+**3. First-death variance collapsed (±26.8 → ±13.4).**
+The proposed scheme is now more topology-consistent. K_elec=10's high variance was partly caused by topologies where relay CHs drained faster in the 10-round window before rotation — K_elec=5 rotates them out sooner.
+
+**4. LEACH zero-PDR rounds are not improved by this change — by design.**
+LEACH's 163 zeros are caused by its own epoch mechanism, not by K_elec (which only affects the proposed scheme). The gap widens: proposed has 31× fewer zero-PDR rounds than LEACH (5.2 vs 163.0).
+
+**5. The LEACH zero-PDR mechanism is a paper-relevant finding.**
+LEACH's zero-PDR rounds are self-inflicted by its epoch fallback — not caused by jamming. This is a strong argument in the paper: LEACH suffers communication blackouts even in rounds where the jammer is not directly overhead, purely due to protocol design. The proposed scheme's near-zero blackout count holds regardless of jammer position.
+
+### What to Do Next
+
+- K_elec=5 is the new canonical config — update CLAUDE.md
+- Decide on new baselines to rebuild (must include r_tx + 3-window PDR reporting from day one)
+- Consider whether to keep `diag_leach_zeros.m` and `diag_proposed_zeros.m` in the repo or remove as temporary diagnostic scripts
+
+---

@@ -23,7 +23,7 @@ p_base   = 0.95;              % baseline packet success probability outside jamm
 
 %% Round Control
 T        = 1000;              % total simulation rounds
-K_elec   = 10;                % CH re-election interval (rounds) — frequent enough
+K_elec   = 5;                 % CH re-election interval (rounds) — frequent enough
                               % to respond to UAV movement, EWMA has time to stabilize
                               % Note: K_elec used to avoid confusion with K (CH count)
 M        = 10;                % burst size (packets/round) — gives PDR resolution of
