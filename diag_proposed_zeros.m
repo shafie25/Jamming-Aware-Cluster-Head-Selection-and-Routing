@@ -3,7 +3,7 @@
 clc; clear;
 addpath(genpath('.'));
 
-rng(42);
+rng(60);
 config;
 init_network;
 uav_trajectory;
@@ -27,9 +27,12 @@ fprintf('%s\n', repmat('-', 1, 85));
 for t = 1:T
 
     %% CH Election (every K_elec rounds)
-    if mod(t, K_elec) == 0 || t == 1
+    need_regular_election = (mod(t, K_elec) == 0 || t == 1);
+    need_emergency_election = ~need_regular_election && ~any(is_CH & alive);
+
+    if need_regular_election || need_emergency_election
         [is_CH, CH_assign] = elect_ch_proposed(x, y, alive, energy, JR, ...
-            dist_to_BS, E0, d_max, r_c, r_exc, alpha, beta, gamma_, delta, r_tx);
+            dist_to_BS, E0, d_max, p_CH, r_c, r_exc, alpha, beta, gamma_, delta, r_tx);
 
         CH_idx_e = find(is_CH);
         for c = CH_idx_e

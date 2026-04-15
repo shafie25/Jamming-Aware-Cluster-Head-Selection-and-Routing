@@ -775,3 +775,87 @@ With K_elec=5, a fresh election happens every 5 rounds. At Î»=0.6, after 3 conse
 - Consider kappa sensitivity figure (kappa=3, 5, 10) as a robustness argument in the paper
 
 ---
+
+## Run 013 - Emergency CH Re-election + 20-Seed Re-evaluation
+
+**Date:** 2026-04-15  
+**Run by:** Ahmed + Codex
+
+### What This Run Was
+
+Documentation and validation run after adding emergency CH re-election to the proposed scheme and expanding the default multi-seed evaluation from 5 seeds to 20 seeds (`1:20`). The focus of this run was to confirm that the zero-PDR rounds caused by `CHs=0` were removed, then re-evaluate the main Proposed vs LEACH comparison with a larger sample of random topologies.
+
+### Code State
+
+- `schemes/run_proposed.m` updated: if a round is not a scheduled CH election round and no alive CH remains, the protocol now triggers an emergency CH re-election immediately
+- Emergency re-election reuses the standard `elect_ch_proposed(...)` logic and pays the normal control overhead
+- `diag_proposed_zeros.m` updated to mirror the same emergency re-election rule so the diagnostic matches the actual protocol
+- `run_multiseed.m` updated: default seeds changed from `{42, 7, 13, 99, 101}` to `1:20`
+- No changes to `lambda`, `kappa`, `r_tx`, or CHScore weights
+- Canonical config at time of run: `kappa=10`, `K_elec=5`, `lambda=0.6`, `r_tx=50m`
+
+### Parameters Used
+
+| Parameter | Value | Description |
+|---|---|---|
+| `N` | 100 | Number of sensor nodes |
+| `area` | 100 m | Field side length |
+| `BS` | [50, 50] | Base station at field center |
+| `E0` | 0.5 J | Initial energy per node |
+| `T` | 1000 | Total simulation rounds |
+| `K_elec` | 5 | Scheduled CH re-election interval |
+| `M` | 10 | Burst size (packets/round) |
+| `p_CH` | 0.05 | Target CH fraction |
+| `r_c` | 15 m | Neighbor counting radius for CHScore |
+| `r_exc` | 25 m | CH exclusion radius |
+| `r_tx` | 50 m | Member-to-CH transmission limit |
+| `lambda` | 0.6 | EWMA smoothing constant |
+| `alpha` | 0.35 | CHScore energy weight |
+| `beta` | 0.20 | CHScore connectivity weight |
+| `gamma_` | 0.35 | CHScore jamming-risk penalty |
+| `delta` | 0.10 | CHScore BS-distance penalty |
+| `phi1` | 1e-4 | Routing per-hop penalty |
+| `phi2` | 1 | Routing energy scaling |
+| `phi3` | 5e-4 | Routing JR penalty |
+| `r_j` | 20 m | Jamming radius |
+| `kappa` | 10 | Jamming decay constant |
+| `p_base` | 0.95 | Baseline packet success |
+| `E_elec` | 50 nJ/bit | Circuit energy |
+| `E_amp` | 100 pJ/bit/m^2 | Amplifier energy |
+| `E_da` | 5 nJ/bit | Aggregation energy |
+| `L` | 4000 bits | Packet length |
+| Seeds | `1:20` | Multi-seed evaluation set |
+
+### Results (mean ± std across 20 seeds)
+
+| Metric | Proposed | LEACH |
+|---|---|---|
+| First node death (round) | 603.0 ± 35.1 | **726.6 ± 30.4** |
+| PDR all rounds (%) | **71.24 ± 1.58** | 62.20 ± 0.85 |
+| PDR FND-trunc (%) | **82.03 ± 1.28** | 72.81 ± 2.91 |
+| Zero-PDR rounds | **1.2 ± 5.6** | 164.5 ± 15.7 |
+| Energy @ round 300 (J) | 31.61 ± 0.43 | **32.39 ± 1.25** |
+
+### Takeaways
+
+**1. The emergency re-election fix solved the original `CHs=0` blackout problem.**  
+The earlier zero-PDR rounds caused by all CHs dying between scheduled elections are no longer the dominant failure mode. The fix worked as intended.
+
+**2. The core story survives a larger 20-seed sample.**  
+The proposed scheme still wins clearly on PDR and dramatically on blackout reduction. The mean PDR gap remains about +9 percentage points across all rounds and about +9.2 points in the FND-truncated window.
+
+**3. LEACH still wins on lifetime and residual energy.**  
+This confirms the main trade-off is structural, not a 5-seed artifact: multi-hop relay load in the proposed scheme improves delivery but concentrates energy drain on a subset of CHs.
+
+**4. Remaining proposed zero-PDR rounds are late end-of-life events, not the original control bug.**  
+Diagnostic inspection showed that the remaining proposed zero-PDR rounds occur very late, typically after round 900, when the network has collapsed to one CH and almost no reachable members remain. In some cases the last member is deeply jammed; in others there are no active members left at all.
+
+**5. Expanding from 5 seeds to 20 seeds makes the results more defensible.**  
+The means stayed close to the earlier 5-seed values, which is a good sign. The larger sample reduces the chance that the reported conclusion is driven by a small set of lucky or unlucky topologies.
+
+### What to Do Next
+
+- Treat zero-PDR rounds as a late-stage secondary issue for now; they are no longer the main bottleneck
+- Shift tuning effort toward improving average PDR without causing a major lifetime collapse
+- Best next levers to test: CHScore weights (`alpha`, `beta`, `gamma_`, `delta`), routing weights (`phi1`, `phi3`), and possibly adaptive CH density late in life
+- If paper numbers are finalized soon, prefer the 20-seed results over the 5-seed results as the default reported comparison

@@ -23,7 +23,7 @@
 %                  0 means stranded (no CH within r_tx)
 
 function [is_CH, CH_assign] = elect_ch_proposed(x, y, alive, energy, JR, ...
-    dist_to_BS, E0, d_max, r_c, r_exc, alpha, beta, gamma_, delta, r_tx)
+    dist_to_BS, E0, d_max, p_CH, r_c, r_exc, alpha, beta, gamma_, delta, r_tx)
 
     N = length(x);
     is_CH     = false(1, N);
@@ -57,7 +57,6 @@ function [is_CH, CH_assign] = elect_ch_proposed(x, y, alive, energy, JR, ...
     end
 
     %% Step 3 — Determine K: dynamic CH count (LEACH standard)
-    p_CH = 0.05;
     K    = max(1, round(p_CH * n_alive));   % at least 1 CH always
 
     %% Step 4 — Greedy spatial election with exclusion radius r_exc

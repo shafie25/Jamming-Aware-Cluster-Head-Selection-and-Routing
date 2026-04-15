@@ -1,128 +1,129 @@
-# CLAUDE.md — Context for Claude Code Sessions
+# CLAUDE.md - Context for Claude Code Sessions
 
 ## What This Project Is
 
 MATLAB simulation for a graduate wireless networks course project:
 **"Jamming-Aware Cluster Head Selection and Routing in Wireless Sensor Networks under UAV-Based Interference"**
 
-100 sensor nodes, 100×100m field, BS at center [50,50]. A UAV jammer follows a circular orbit and degrades packet delivery. The proposed scheme integrates jamming risk (JR) into CH election and inter-cluster routing to outperform standard LEACH under jamming.
-
-RNG seed is fixed at `rng(42)` in `main.m` — all schemes see the identical network topology and packet draws.
+100 sensor nodes in a `100 x 100 m` field, BS at `[50,50]`, and a UAV jammer moving on a circular orbit. The proposed scheme uses jamming risk (JR) in both CH election and inter-cluster routing, and is compared against standard LEACH.
 
 ---
 
-## Current State (as of 2026-04-14, Run 011)
+## Current State (as of 2026-04-15, Run 013)
 
 ### Implemented
-- `schemes/run_proposed.m` — proposed scheme: JR-aware CHScore election + Dijkstra routing
-- `schemes/run_leach.m` — standard LEACH: probabilistic CH election, direct CH→BS
-- `run_multiseed.m` — 5-seed averaging, Proposed + LEACH, 3-window PDR reporting
-- `plotting/plot_multiseed.m` — mean ± std band plots
-- `plotting/visualize_snapshot.m` — 2D network map with stranded node visualization
+- `schemes/run_proposed.m` - proposed scheme: JR-aware CHScore election + Dijkstra routing + emergency CH re-election when no CH remains
+- `schemes/run_leach.m` - standard LEACH: probabilistic CH election, direct CH-to-BS
+- `run_multiseed.m` - current default evaluation using seeds `1:20`, Proposed + LEACH, 3-window PDR reporting
+- `run_lambda_sensitivity.m` - lambda sensitivity sweep for the proposed scheme
+- `plotting/plot_multiseed.m` - mean � std band plots
+- `plotting/visualize_snapshot.m` - 2D network map with stranded-node visualization
+- `diag_proposed_zeros.m` / `diag_leach_zeros.m` - per-round blackout diagnostics
 
 ### Entry Points
-- `main.m` — single seed (42), Proposed + LEACH, quick sanity checks
-- `run_multiseed.m` — 5-seed average, final reported results
+- `main.m` - single seed quick check
+- `run_multiseed.m` - current comparative evaluation entry point
+- `run_lambda_sensitivity.m` - parameter sensitivity entry point for `lambda`
 
-### Active Model: r_tx = 50m transmission range limit
-A hard 50m transmission range limit is active. Member nodes farther than 50m from every CH are stranded — their packets count as lost in the PDR denominator. Applies to both Proposed and LEACH.
+### Active Model
+- `kappa = 10`
+- `K_elec = 5`
+- `lambda = 0.6`
+- `p_CH = 0.05`
+- `r_tx = 50m`
+- Emergency CH re-election is enabled only when a round begins with no alive CHs
 
----
-
-## Current Best Results (Run 011 — kappa=10, r_tx=50m, K_elec=5, 5-seed average)
+### Current Best Comparative Results (20 seeds, `1:20`)
 
 | Metric | Proposed | LEACH |
 |---|---|---|
-| First node death (round) | 593.2 ± 13.4 | 712.8 ± 35.9 |
-| PDR all rounds (%) | **70.95 ± 1.22** | 62.02 ± 0.82 |
-| PDR FND-trunc (%) | **82.23 ± 1.54** | 71.37 ± 4.67 |
-| Zero-PDR rounds | **5.2 ± 3.7** | 163.0 ± 18.3 |
-| Energy @ round 300 (J) | 31.62 ± 0.32 | 32.21 ± 1.62 |
+| First node death (round) | 603.0 � 35.1 | **726.6 � 30.4** |
+| PDR all rounds (%) | **71.24 � 1.58** | 62.20 � 0.85 |
+| PDR FND-trunc (%) | **82.03 � 1.28** | 72.81 � 2.91 |
+| Zero-PDR rounds | **1.2 � 5.6** | 164.5 � 15.7 |
+| Energy @ round 300 (J) | 31.61 � 0.43 | **32.39 � 1.25** |
 
-**Headline:** Proposed delivers +8.9pp PDR (all rounds), +10.9pp PDR (FND-truncated), and 31× fewer zero-PDR rounds over LEACH under kappa=10 jamming.
-
-**Key trade-off:** Proposed dies 120 rounds earlier (593 vs 713) due to relay CH energy concentration in multi-hop routing — but delivers more per round while alive. FND-truncated PDR gap (+10.9pp) is wider than all-rounds gap (+8.9pp), confirming the advantage holds within the operational window.
-
+Headline:
+- Proposed is clearly better on PDR and blackout avoidance.
+- LEACH still wins on first-node-death and slightly on residual energy because relay burden is concentrated in the proposed multi-hop routing layer.
 
 ---
 
 ## Important Gotchas
 
-**lambda=0.6 is confirmed optimal — do not increase it:** Sensitivity test over λ={0.6, 0.7, 0.8} (Run 012) showed higher λ increases zero-PDR rounds (5.2→9.4 for λ=0.8) due to stochastic noise amplification from M=10 burst estimates. FND-truncated PDR is flat across all three (82.19–82.25%). λ=0.6 wins on every meaningful metric.
+**`lambda = 0.6` is still the best tested value.**
+The sensitivity sweep over `{0.6, 0.7, 0.8}` showed no meaningful PDR gain from larger `lambda`, but worse blackout behavior due to noise amplification from `M = 10` packet bursts.
 
-**r_c is a neighbor counting radius, not a communication range:** The old comment said "communication range for neighbor counting" — this was misleading and has been corrected. r_c=15m is a scoring parameter used exclusively in the CHScore β term. It has no physical radio interpretation and no intended relationship to r_tx=50m.
+**`p_CH` is now actually controlled by `core/config.m`.**
+`layer1/elect_ch_proposed.m` used to hardcode `p_CH = 0.05`. That has been fixed: `p_CH` now flows through the function signature from config. Any future `p_CH` sweep is now real.
 
-**PDR reporting — three complementary windows:** Most WSN papers (2022–2025) do not specify their PDR evaluation window — this is a documented gap in the literature (see systematic review PMC12845974). We report PDR under three windows to address this:
-- **All T rounds:** `mean(PDR)` — full lifecycle, most common in literature, use as primary for comparability
-- **FND-truncated:** `mean(PDR(1:t_death))` — operational period only, isolates protocol performance from mortality timing
-- **Zero-PDR round count:** `sum(PDR == 0)` — communication blackout duration under jamming, most direct adversarial reliability metric
-End-of-life PDR=0 causes: (1) last node alive becomes sole CH with no members (`total_sent=0`), (2) jammer wipes all packets with 1–2 members remaining, (3) all non-CH nodes stranded beyond `r_tx`. These are not bugs — they are physically real. The three-window approach is the honest response. See README for paper phrasing and full source list.
+**Emergency CH re-election only fixes `CHs = 0` rounds.**
+It does not repair every late-stage failure mode. Remaining proposed zero-PDR rounds are end-of-life topology collapse cases: one CH left, many stranded nodes, and often no active members.
 
-**M=10 granularity:** With 10 packets per burst, PDR resolution per single node is 0.1. When the network shrinks to 1–2 nodes, per-round PDR snaps to {0, 0.1, 0.2, ...}. This is expected, not a bug.
+**`r_c` is not a radio limit.**
+`r_c = 15m` is only a neighbor-counting radius for the CHScore connectivity term. The actual hard communication limit is `r_tx = 50m`.
 
-**`gamma_` not `gamma`:** `gamma` is a MATLAB built-in. The CHScore weight is named `gamma_` everywhere — in `core/config.m`, `schemes/run_proposed.m`, `layer1/elect_ch_proposed.m`, and the `main.m` function call.
+**PDR must be read in three windows.**
+Use all-round PDR, FND-truncated PDR, and zero-PDR round count together. End-of-life zeros are physically real and should not be silently dropped.
 
-**`r_c` must be in `core/config.m`:** `r_c = 15` (neighbor counting radius for CHScore β term) was missing from the original `config.m` and caused an undefined variable error. It has been added. If config.m is ever reset, this needs to be there.
+**`gamma_` not `gamma`.**
+`gamma` conflicts with a MATLAB builtin. The CHScore jamming-risk weight is `gamma_` everywhere.
 
-**LEACH energy model:** The original `reference/LEACH.m` script used its own energy constants (epsilon_fs, epsilon_mp, d_0 threshold). `schemes/run_leach.m` was deliberately rewritten to use the same `E_elec`, `E_amp`, `E_da`, `L` from `core/config.m` as the proposed scheme — apples-to-apples comparison. Do not revert this.
-
-**LEACH.m vs run_leach.m:** `reference/LEACH.m` is the original standalone script (kept for reference). `schemes/run_leach.m` is the integrated function used in the simulation. They are different files.
-
-**`r_c` is NOT a radio range limit:** `r_c = 15m` is used exclusively in `elect_ch_proposed.m` to count neighbors for the CHScore beta term. Cluster assignment joins every member to its nearest CH within `r_tx` — no other range check exists. Do not confuse r_c with r_tx.
-
-**`r_tx` is the transmission range limit:** `r_tx = 50m` enforces a hard maximum distance between a member node and its CH. Nodes beyond r_tx from every CH are stranded (CH_assign = 0). Their M packets are added to total_sent as lost — honest PDR accounting. This was added in Run 007. The guard `if CH_assign(i) == 0; continue; end` in the overhead and transmission loops handles stranded nodes silently.
-
-**`r_exc` is derived, not arbitrary:** `r_exc = 25m` comes from the formula `sqrt(area² / (p_CH × N × π))`. At p_CH=0.05, K=5 CHs, area per CH = 2000m², r_exc = sqrt(2000/π) ≈ 25m. If p_CH is ever changed, r_exc must be updated consistently — or replaced with the dynamic formula `r_exc = sqrt(area^2 / (p_CH * N * pi))` in config.m.
-
-
----
-
-## How to Add a New Baseline
-
-1. Create `schemes/run_<name>.m` as a function returning a struct with fields: `PDR`, `energy`, `delay`, `alive`, `t_death`, `label` — all vectors of length T except `t_death` (scalar) and `label` (string)
-2. Add `r_tx` parameter to the function signature
-3. Enforce `min_d <= r_tx` in cluster assignment; add `n_stranded * M` to `total_sent`
-4. Call it in `main.m` after the existing scheme calls, passing network state from the workspace
-5. Append its result to `results_all`
-6. Log the run in `docs/SIMULATION_LOG.md`
+**LEACH comparison is intentionally apples-to-apples on energy constants.**
+`schemes/run_leach.m` uses the same `E_elec`, `E_amp`, `E_da`, `L`, and `r_tx` model as the proposed scheme. Do not revert to `reference/LEACH.m` behavior for reported comparisons.
 
 ---
 
 ## Repo Structure
 
-```
-main.m                       ← entry point (addpath(genpath('.')) at top)
-CLAUDE.md                    ← this file
+```text
+main.m
+run_multiseed.m
+run_lambda_sensitivity.m
+CLAUDE.md
 core/
-  config.m                   ← all parameters — edit here, nowhere else
-  init_network.m             ← node deployment, initial state vectors
-  uav_trajectory.m           ← precomputes J_x, J_y for all T rounds
-  compute_packet_success.m   ← p_i(t) per node given jammer position
-  compute_energy.m           ← energy cost for tx / rx / agg / overhead
+  config.m
+  init_network.m
+  uav_trajectory.m
+  compute_packet_success.m
+  compute_energy.m
 layer1/
-  update_jamming_risk.m      ← EWMA PDR → JR update
-  elect_ch_proposed.m        ← CHScore greedy election
+  update_jamming_risk.m
+  elect_ch_proposed.m
 layer2/
-  route_dijkstra.m           ← Dijkstra inter-cluster routing
+  route_dijkstra.m
 schemes/
-  run_proposed.m             ← proposed scheme round loop
-  run_leach.m                ← standard LEACH baseline round loop
+  run_proposed.m
+  run_leach.m
 plotting/
-  plot_results.m             ← 4-panel results figure
-  plot_multiseed.m           ← mean ± std band plots (multi-seed)
-  visualize_snapshot.m       ← 2D network map at a specific round
-reference/
-  LEACH.m                    ← original LEACH script (reference only, not called)
+  plot_results.m
+  plot_multiseed.m
+  visualize_snapshot.m
 docs/
-  README.md                  ← project overview and design decisions
-  SIMULATION_LOG.md          ← per-run results log — update after every run
+  README.md
+  SIMULATION_LOG.md
+  proposed_model_for_paper_search.md
+reference/
+  LEACH.m
 ```
 
 ---
 
-## What to Work on Next
+## What To Work On Next
 
-- Rebuild baselines from scratch (must include r_tx=50m + 3-window PDR reporting from day one)
-- Write paper discussion section using Run 011 numbers (kappa=10, K_elec=5, lambda=0.6, 3-window PDR)
-- Consider kappa sensitivity figure (kappa=3, 5, 10) as a robustness argument in the paper
-- Consider whether to keep diag_leach_zeros.m and diag_proposed_zeros.m in repo or remove
+Priority order:
+
+1. Add residual-energy awareness to `route_dijkstra.m` so overloaded relay CHs are penalized.
+2. Tune CHScore weights `alpha`, `beta`, `gamma_`, `delta` for better average PDR without a major lifetime collapse.
+3. Sweep routing weights `phi1` and `phi3` to reduce unnecessary relays and average hop delay.
+4. Consider adaptive CH density late in life instead of raising `p_CH` globally.
+5. Keep zero-PDR rounds as a secondary issue for now; they are mostly after round 900 and are no longer the main bottleneck.
+
+---
+
+## How To Add a New Baseline
+
+1. Create `schemes/run_<name>.m` returning a struct with `PDR`, `energy`, `delay`, `alive`, `t_death`, `label`.
+2. Use the same `r_tx` stranded-node accounting as the current schemes.
+3. Wire the new baseline into `main.m` and `run_multiseed.m`.
+4. Log the new results in `docs/SIMULATION_LOG.md`.

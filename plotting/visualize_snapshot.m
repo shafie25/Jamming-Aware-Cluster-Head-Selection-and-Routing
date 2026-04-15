@@ -19,8 +19,8 @@ clc; clear; close all;
 addpath(genpath('.'));
 
 %% ---- User Settings -------------------------------------------------------
-snapshot_round = 500;    % target round — set to 0 for random pick in [75, 400]
-seed           = 42;   % RNG seed (matches main.m)
+snapshot_round = 976;    % target round — set to 0 for random pick in [75, 400]
+seed           = 7;   % RNG seed (matches main.m)
 %% -------------------------------------------------------------------------
 
 rng(seed);
@@ -50,7 +50,7 @@ for t = 1:snapshot_round
     %% CH election (every K_elec rounds, and round 1)
     if mod(t, K_elec) == 0 || t == 1
         [is_CH, CH_assign] = elect_ch_proposed(x, y, alive, energy, JR, ...
-            dist_to_BS, E0, d_max, r_c, r_exc, alpha, beta, gamma_, delta, r_tx);
+            dist_to_BS, E0, d_max, p_CH, r_c, r_exc, alpha, beta, gamma_, delta, r_tx);
 
         CH_idx_e = find(is_CH);
         for c = CH_idx_e

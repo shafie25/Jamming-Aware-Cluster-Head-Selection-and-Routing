@@ -9,7 +9,7 @@ config;   % load all simulation parameters
 orbit_center = [area/2, area/2];   % orbit center coincides with field center (m)
 orbit_radius = 35;                  % orbit radius (m) — keeps UAV inside 100x100m field
 omega        = 2*pi / 50;          % angular speed (rad/round) — one full orbit per 50 rounds
-                                    % every K_elec=10 rounds the jammer moves 72 degrees,
+                                    % every K_elec=5 rounds the jammer moves 72 degrees,
                                     % meaningfully threatening a different cluster region
 
 %% Precompute Trajectory for All Rounds

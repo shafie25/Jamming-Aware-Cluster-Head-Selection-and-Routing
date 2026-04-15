@@ -1,202 +1,180 @@
 # Proposed Model: Jamming-Aware Cluster Head Selection and Routing in WSNs under UAV-Based Interference
 
-This document describes the full proposed model as implemented in MATLAB. It is intended to help identify relevant prior work and suitable comparison baselines from the literature.
+This document summarizes the current MATLAB implementation so it can be mapped cleanly to prior work and candidate baselines.
 
 ---
 
-## Problem Statement
+## Current Problem Setup
 
-We simulate a Wireless Sensor Network (WSN) of **100 static sensor nodes** randomly deployed in a **100×100 m field**, with a Base Station (BS) at the center [50, 50]. A **UAV-mounted jammer** follows a circular orbit over the field and actively degrades packet delivery for nodes within its jamming radius. The goal is to maximize packet delivery ratio (PDR) and network lifetime despite this interference, by integrating jamming awareness into both cluster head (CH) election and inter-cluster routing.
+- `N = 100` static sensor nodes
+- `100 x 100 m` deployment field
+- BS at `[50, 50]`
+- Initial node energy `E0 = 0.5 J`
+- Simulation horizon `T = 1000` rounds
+- UAV jammer follows a circular orbit centered at `[50, 50]` with radius `35 m`
+- One full jammer orbit every `50` rounds
+- Jamming radius `r_j = 20 m`
+- Baseline packet success `p_base = 0.95`
+- Jamming decay constant `kappa = 10`
+- Hard member-to-CH transmission limit `r_tx = 50 m`
+
+Packet success model:
+
+```text
+p_i(t) = p_base                               if d_iJ(t) > r_j
+p_i(t) = p_base * exp(-kappa * (1 - d_iJ/r_j)) if d_iJ(t) <= r_j
+```
+
+At the jammer center, `p` is effectively zero.
 
 ---
 
-## Network and Jammer Model
+## Layer 1: Jamming Risk Estimation
 
-### Network
-- N = 100 nodes, uniform random deployment, static positions
-- BS at field center [50, 50] m
-- Initial energy per node: E_0 = 0.5 J
-- Simulation runs for T = 1000 rounds
-- Energy model: LEACH radio model (Heinzelman et al.)
-  - Tx: `E_tx = L·E_elec + L·E_amp·d²`
-  - Rx: `E_rx = L·E_elec`
-  - Aggregation: `E_agg = n_members · L · E_da`
-  - E_elec = 50 nJ/bit, E_amp = 100 pJ/bit/m², E_da = 5 nJ/bit, L = 4000 bits
+Every alive non-CH node sends `M = 10` packets per round.
 
-### UAV Jammer
-- Circular orbit centered at [50, 50] m with radius 35 m
-- Angular speed ω = 2π/50 rad/round → one full orbit every 50 rounds
-- Jamming radius r_j = 20 m
+1. Instantaneous PDR is measured from the burst.
+2. EWMA smoothing is applied with `lambda = 0.6`.
+3. Jamming risk is computed as:
 
-### Packet Success Probability (per node per round)
-For node i at distance d_i from the jammer at round t:
-
-```
-         p_base                            if d_i > r_j
-p_i(t) = 
-         p_base · exp(−κ · (1 − d_i/r_j)) if d_i ≤ r_j
+```text
+JR_i(t) = 1 - PDR_ewma_i(t)
 ```
 
-- p_base = 0.95 (baseline success rate outside jamming zone)
-- κ = 3 (decay constant; at jammer center, p drops to ~0.047)
-
-This is an exponential decay model: packet success degrades smoothly from p_base at the boundary to near-zero at the jammer's exact position.
+This is a decentralized link-quality / interference estimate derived only from local packet outcomes.
 
 ---
 
-## Layer 1: Jamming Risk Estimation (EWMA)
+## Layer 1: CH Election
 
-Each round, every alive **member node** (non-CH) attempts a burst of M = 10 packets. Jamming risk is estimated via three steps:
+Scheduled CH re-election occurs every `K_elec = 5` rounds.
 
-**Step 1 — Instantaneous PDR (Eq. 3):**
-```
-PDR_inst_i(t) = (1/M) · Σ Bernoulli(p_i(t))   [sum over M packet draws]
-```
+Each alive node is scored by:
 
-**Step 2 — EWMA-smoothed PDR (Eq. 4):**
-```
-PDR_ewma_i(t) = λ · PDR_inst_i(t) + (1−λ) · PDR_ewma_i(t−1)
-```
-- λ = 0.6 (recent observations weighted more heavily; tracks UAV movement while smoothing noise)
-
-**Step 3 — Jamming Risk Score (Eq. 5):**
-```
-JR_i(t) = 1 − PDR_ewma_i(t)    ∈ [0, 1]
+```text
+CHScore_i = alpha*(E_i/E0)
+          + beta*(|N_i|/N_max)
+          - gamma_*JR_i
+          - delta*(d_i,BS/d_max)
 ```
 
-JR = 0 means no detected jamming; JR = 1 means complete packet loss. This is a **distributed, decentralized** estimate — each node computes its own JR from its own transmission outcomes without any explicit message from the jammer.
+with:
+- `alpha = 0.35`
+- `beta = 0.20`
+- `gamma_ = 0.35`
+- `delta = 0.10`
+
+Additional election settings:
+- Dynamic CH count: `K = round(0.05 * N_alive)`
+- Neighbor counting radius: `r_c = 15 m`
+- Spatial exclusion radius: `r_exc = 25 m`
+
+### Emergency CH Re-election
+
+The current implementation includes a recovery rule in `run_proposed.m`:
+- If a round starts with **no alive CHs**, the protocol triggers an immediate emergency CH re-election.
+- The emergency step reuses the standard CH election logic and pays the normal control overhead.
+- This is intended only to remove the artificial blackout window created when all CHs die between scheduled elections.
+
+Alive non-CH nodes are assigned to the nearest CH within `r_tx`; otherwise they are stranded and their packets count as lost in the PDR denominator.
 
 ---
 
-## Layer 1: CH Election — CHScore (Eq. 6)
+## Layer 2: Inter-Cluster Routing
 
-CH re-election occurs every K_elec = 10 rounds. The number of CHs is K = round(0.05 · N_alive), consistent with LEACH's 5% target.
+CHs route to the BS using Dijkstra on a fully connected CH graph.
 
-### CHScore Formula
-Each alive node computes:
+Per-edge cost:
 
+```text
+C(i,j,t) = phi1 + phi2*E_amp*L*d_ij^2 + phi3*JR_j
 ```
-CHScore_i = α · (E_i / E_0)  +  β · (|N_i| / N_max)  −  γ · JR_i  −  δ · (d_i_BS / d_max)
-```
 
-| Term | Weight | Meaning |
-|---|---|---|
-| E_i / E_0 | α = 0.35 | Residual energy fraction — prefer energy-rich nodes |
-| \|N_i\| / N_max | β = 0.20 | Normalized neighbor count within r_c = 15 m — prefer well-connected nodes |
-| JR_i | γ = 0.35 | Jamming risk — **penalize** nodes currently being jammed |
-| d_i_BS / d_max | δ = 0.10 | Distance to BS normalized by field diagonal — prefer closer nodes |
+with:
+- `phi1 = 1e-4`
+- `phi2 = 1`
+- `phi3 = 5e-4`
 
-Weights sum to 1.0. The **jamming risk penalty (γ)** and energy term (α) carry equal weight and are the dominant factors, reflecting the paper's core claim.
-
-### Greedy Spatial Election with Exclusion Radius
-After scoring all alive nodes:
-1. Sort nodes by CHScore descending
-2. Elect the top-scoring eligible node as CH
-3. **Suppress all nodes within r_exc = 25 m** of the new CH (exclusion radius derived from expected CH territory area: r ≈ sqrt(field_area / (π·K)) ≈ 25 m)
-4. Repeat until K CHs are elected
-
-This ensures **spatial spread** of CHs — avoids electing multiple CHs in the same region while leaving other regions uncovered.
-
-### Cluster Assignment
-Each alive non-CH node joins its **nearest CH** by Euclidean distance.
+Interpretation:
+- penalize extra hops (`phi1`)
+- penalize long links (`d^2` energy term)
+- avoid relays that are currently jammed (`JR_j` term)
 
 ---
 
-## Layer 2: Inter-Cluster Routing — Dijkstra (Eq. 7, 8)
+## Energy Model
 
-Instead of each CH transmitting directly to the BS (as in LEACH), CHs form a **multi-hop relay graph**. Dijkstra's algorithm finds the minimum-cost path from each CH to the BS every round.
+LEACH-style radio model:
 
-### Edge Cost (Eq. 7)
-For a link from CH_i to relay node CH_j (or directly to BS):
-
+```text
+E_tx = L*E_elec + L*E_amp*d^2
+E_rx = L*E_elec
+E_agg = n_members*L*E_da
 ```
-C(i → j) = φ1  +  φ2 · E_amp · L · d_ij²  +  φ3 · JR_j
-```
 
-| Term | Value | Meaning |
-|---|---|---|
-| φ1 | 1×10⁻⁴ J | Fixed per-hop penalty — discourages unnecessary relay hops |
-| φ2 · E_amp · L · d_ij² | φ2=1 | Propagation energy cost, quadratic in distance |
-| φ3 · JR_j | φ3=5×10⁻⁴ J | **Avoids routing through jammed relay nodes** |
-
-The JR penalty on the destination node means the algorithm naturally steers traffic away from relays currently in the jammer's path.
-
-### Dijkstra Execution
-- Graph nodes: all current CHs + BS (BS treated as a super-sink with JR = 0)
-- Run once per round for each CH
-- Output: ordered relay path from CH to BS; energy deducted per hop
+with:
+- `E_elec = 50 nJ/bit`
+- `E_amp = 100 pJ/bit/m^2`
+- `E_da = 5 nJ/bit`
+- `L = 4000 bits`
 
 ---
 
-## Round Loop (Full Execution Flow)
+## Metrics Reported
 
-Each of the T = 1000 rounds executes the following sequence:
+- PDR over all `T` rounds
+- PDR truncated at first node death (`FND-trunc`)
+- Zero-PDR round count
+- First node death round
+- Residual energy at round 300
+- Mean hop-count delay
 
-```
-1. [Every K_elec rounds] Run CHScore election → assign clusters → pay control overhead energy
-2. Compute p_i(t) for all nodes (jammer position J_x(t), J_y(t))
-3. Member nodes attempt M packets → update PDR_ewma and JR
-4. Deduct Tx/Rx energy: member → CH links
-5. Run Dijkstra routing for all CHs
-6. CH aggregates member data → deducts E_agg
-7. CH forwards along relay path to BS → deducts Tx/Rx per hop
-8. Record metrics: PDR, total residual energy, average hop count, alive node count
-9. Kill nodes with energy ≤ 0; record first-death round
-```
+The three-window PDR reporting is deliberate: all-round PDR, FND-truncated PDR, and zero-PDR count capture different aspects of protocol behavior under jamming and late-stage collapse.
 
 ---
 
-## Key Metrics Reported
-
-| Metric | Definition |
-|---|---|
-| PDR (%) | (packets received at BS) / (packets sent by all member nodes), per round |
-| Network lifetime | Round of first node death |
-| Residual energy at round 300 | Sum of all alive node energies (J) |
-| Zero-PDR rounds | Number of rounds where PDR = 0 (complete delivery failure) |
-
----
-
-## Current Baselines (Already Implemented)
+## Current Implemented Baselines
 
 | Scheme | Description |
 |---|---|
-| **LEACH** | Standard probabilistic CH election, direct CH→BS transmission, no jamming awareness |
-| **EWMA-Detect** | LEACH + EWMA jamming detection (detection computed but never acted upon — confirms that detection alone without adaptation is useless) |
-| **Threshold-JR** | LEACH + member transmission suppression when a member's JR > 0.70 (reduces wasted energy on jammed packets, does not change CH election or routing) |
-| **Reactive-CH** | LEACH + reactive CH re-election within a cluster when the current CH's JR > 0.50 (replaces jammed CH with a member, but the replacement is typically still inside the same jammed zone) |
+| Proposed | JR-aware CH election + JR-aware inter-cluster routing + emergency CH recovery when no CH remains |
+| Standard LEACH | Probabilistic CH election, direct CH-to-BS, no jamming awareness |
 
 ---
 
-## Summary of Final Results (5-seed average, 1000 rounds)
+## Current Best Comparative Results
 
-| Metric | Proposed | LEACH | EWMA-Detect | Threshold-JR | Reactive-CH |
-|---|---|---|---|---|---|
-| PDR mean (%) | **81.63 ± 3.46** | 58.99 ± 1.02 | 58.96 ± 1.87 | 60.25 ± 1.90 | 58.70 ± 1.56 |
-| First death (round) | 394.0 ± 86.6 | 432.0 ± 34.0 | 413.8 ± 23.6 | 414.4 ± 22.4 | 401.8 ± 25.4 |
-| Energy @ round 300 (J) | **30.42 ± 0.73** | 26.92 ± 1.03 | 26.06 ± 1.07 | 27.50 ± 0.99 | 26.29 ± 0.43 |
-| Zero-PDR rounds | **78.2 ± 37.4** | 330.8 ± 11.7 | 330.2 ± 19.3 | 308.6 ± 20.3 | 330.6 ± 17.4 |
+Current default comparison uses `run_multiseed.m` with seeds `1:20`.
 
-**Headline result:** +21.4 percentage point PDR improvement over the best baseline (Threshold-JR), with 4× fewer zero-PDR rounds, and better energy efficiency.
+| Metric | Proposed | LEACH |
+|---|---|---|
+| First node death (round) | 603.0 � 35.1 | **726.6 � 30.4** |
+| PDR all rounds (%) | **71.24 � 1.58** | 62.20 � 0.85 |
+| PDR FND-trunc (%) | **82.03 � 1.28** | 72.81 � 2.91 |
+| Zero-PDR rounds | **1.2 � 5.6** | 164.5 � 15.7 |
+| Energy @ round 300 (J) | 31.61 � 0.43 | **32.39 � 1.25** |
+
+Headline interpretation:
+- The proposed scheme clearly improves delivery and strongly suppresses blackout rounds.
+- LEACH still lasts longer and retains slightly more energy because relay load is concentrated in the proposed multi-hop design.
+- Remaining proposed zero-PDR rounds occur only in extreme late-stage collapse.
 
 ---
 
-## What to Search for in the Literature
+## Literature Search Targets
 
-Based on the model above, the following areas are relevant for finding baseline papers or closely related prior work:
+The most relevant prior-work categories now are:
 
-1. **LEACH and energy-efficient clustering in WSNs** — original energy model and probabilistic CH election
-2. **Jamming-aware or interference-aware clustering** — CHScore-like formulations that include jamming/interference in CH election
-3. **UAV-based jamming or eavesdropping in WSNs** — threat models where an aerial adversary moves over the network
-4. **EWMA-based link quality estimation in WSNs** — using exponential moving average to track PDR or LQI
-5. **Multi-hop inter-cluster routing in WSNs with energy/interference cost** — Dijkstra or shortest-path routing where edge cost combines energy and link quality
-6. **Anti-jamming routing in wireless networks** — graph-based approaches that route around jammed regions
-7. **Jamming-resilient WSN protocols** — any scheme that modifies MAC or routing behavior based on detected jamming
-8. **Threshold-based or reactive CH re-election in WSNs** — papers that replace CHs during a round based on energy or link quality thresholds
+1. Jamming-aware clustering in WSNs
+2. Interference-aware or anti-jamming routing in clustered WSNs
+3. UAV-based jamming threat models for terrestrial sensor networks
+4. EWMA-based link-quality / packet-delivery estimation in WSNs
+5. Multi-criteria CH scoring methods that combine energy, connectivity, and interference / reliability
+6. Protocols with reactive or emergency CH reselection after CH failure
 
-### Specific questions for the literature search:
-- Is there a prior work that combines **both** CH election **and** routing with jamming awareness (as opposed to treating them separately)?
-- Are there UAV-jammer threat model papers that use a similar exponential decay or distance-based packet success model?
-- Is there a standard EWMA-based jamming risk formulation (JR = 1 − PDR_ewma) used in prior WSN security papers?
-- Are there papers that use a CHScore-style multi-criteria weighted sum for CH election (energy + connectivity + interference)?
-- Are there more suitable baselines than the four above — particularly any scheme that uses jamming information for routing but not CH election, or CH election but not routing?
+Specific questions worth searching:
+- Prior work that combines both jamming-aware CH election and jamming-aware routing
+- WSN papers that use packet-success or PDR-based EWMA as an interference proxy
+- WSN papers that include explicit CH failure recovery or emergency reselection
+- UAV-jammer models with distance-based or exponential packet-success attenuation
+- Good ablation baselines: CH-aware only, routing-aware only, recovery-aware only

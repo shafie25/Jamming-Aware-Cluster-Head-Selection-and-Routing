@@ -8,7 +8,7 @@
 clc; clear; close all;
 addpath(genpath('.'));
 
-seeds   = [42, 7, 13, 99, 101];
+seeds   = 1:20;
 n_seeds = length(seeds);
 n_schemes = 2;
 
@@ -37,7 +37,7 @@ for s = 1:n_seeds
 
     %% Proposed
     rp = run_proposed(x, y, BS, J_x, J_y, dist_to_BS, ...
-        E0, d_max, T, K_elec, M, lambda, r_c, r_exc, ...
+        E0, d_max, T, K_elec, M, lambda, p_CH, r_c, r_exc, ...
         alpha, beta, gamma_, delta, phi1, phi2, phi3, ...
         p_base, kappa, r_j, E_elec, E_amp, E_da, L, r_tx);
     store.PDR.proposed(s,:)    = rp.PDR;

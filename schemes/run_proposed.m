@@ -7,7 +7,7 @@
 % Outputs: results_proposed struct with per-round metrics
 
 function results = run_proposed(x, y, BS, J_x, J_y, dist_to_BS, ...
-    E0, d_max, T, K_elec, M, lambda, r_c, r_exc, ...
+    E0, d_max, T, K_elec, M, lambda, p_CH, r_c, r_exc, ...
     alpha, beta, gamma_, delta, phi1, phi2, phi3, ...
     p_base, kappa, r_j, E_elec, E_amp, E_da, L, r_tx)
 
@@ -32,9 +32,12 @@ function results = run_proposed(x, y, BS, J_x, J_y, dist_to_BS, ...
     for t = 1:T
 
         %% --- CH Election (every K_elec rounds) ---
-        if mod(t, K_elec) == 0 || t == 1
+        need_regular_election = (mod(t, K_elec) == 0 || t == 1);
+        need_emergency_election = ~need_regular_election && ~any(is_CH & alive);
+
+        if need_regular_election || need_emergency_election
             [is_CH, CH_assign] = elect_ch_proposed(x, y, alive, energy, JR, ...
-                dist_to_BS, E0, d_max, r_c, r_exc, alpha, beta, gamma_, delta, r_tx);
+                dist_to_BS, E0, d_max, p_CH, r_c, r_exc, alpha, beta, gamma_, delta, r_tx);
 
             % Overhead energy: CH broadcasts ADV, members send join request
             CH_idx = find(is_CH);
