@@ -47,8 +47,11 @@ snap_paths = cell(1, N);
 
 for t = 1:snapshot_round
 
-    %% CH election (every K_elec rounds, and round 1)
-    if mod(t, K_elec) == 0 || t == 1
+    %% CH election (every K_elec rounds, round 1, or emergency when no alive CHs remain)
+    need_regular_election   = (mod(t, K_elec) == 0 || t == 1);
+    need_emergency_election = ~need_regular_election && ~any(is_CH & alive);
+
+    if need_regular_election || need_emergency_election
         [is_CH, CH_assign] = elect_ch_proposed(x, y, alive, energy, JR, ...
             dist_to_BS, E0, d_max, p_CH, r_c, r_exc, alpha, beta, gamma_, delta, r_tx);
 

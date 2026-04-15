@@ -58,7 +58,9 @@ delta    = 0.10;              % weight on distance-to-BS penalty
 %% Routing Weights
 % phi2=1 lets physical constants carry the energy scaling naturally.
 phi2 = 1;                     % energy term scale (unitless) — let epsilon_amp*L*d^2 dominate
-phi1 = 1e-4;                  % fixed per-hop penalty (J) — ~18% of avg hop cost, nudges path length
+phi1 = 5e-4;                  % fixed per-hop penalty (J) — raised from 1e-4 after Run 014 phi1 sweep;
+                              % 5e-4 minimises zero-PDR rounds and tightens first-death variance
+                              % without degrading PDR. 1e-3 causes zero-PDR spikes (too aggressive).
 phi3 = 5e-4;                  % JR penalty scale (J) — matches avg hop cost so JR meaningfully
                               % influences routing without dominating energy term
 

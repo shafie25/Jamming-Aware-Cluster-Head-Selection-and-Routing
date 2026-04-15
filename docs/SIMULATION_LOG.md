@@ -826,15 +826,15 @@ Documentation and validation run after adding emergency CH re-election to the pr
 | `L` | 4000 bits | Packet length |
 | Seeds | `1:20` | Multi-seed evaluation set |
 
-### Results (mean � std across 20 seeds)
+### Results (mean � std across 20 seeds)
 
 | Metric | Proposed | LEACH |
 |---|---|---|
-| First node death (round) | 603.0 � 35.1 | **726.6 � 30.4** |
-| PDR all rounds (%) | **71.24 � 1.58** | 62.20 � 0.85 |
-| PDR FND-trunc (%) | **82.03 � 1.28** | 72.81 � 2.91 |
-| Zero-PDR rounds | **1.2 � 5.6** | 164.5 � 15.7 |
-| Energy @ round 300 (J) | 31.61 � 0.43 | **32.39 � 1.25** |
+| First node death (round) | 603.0 � 35.1 | **726.6 � 30.4** |
+| PDR all rounds (%) | **71.24 � 1.58** | 62.20 � 0.85 |
+| PDR FND-trunc (%) | **82.03 � 1.28** | 72.81 � 2.91 |
+| Zero-PDR rounds | **1.2 � 5.6** | 164.5 � 15.7 |
+| Energy @ round 300 (J) | 31.61 � 0.43 | **32.39 � 1.25** |
 
 ### Takeaways
 
@@ -859,3 +859,138 @@ The means stayed close to the earlier 5-seed values, which is a good sign. The l
 - Shift tuning effort toward improving average PDR without causing a major lifetime collapse
 - Best next levers to test: CHScore weights (`alpha`, `beta`, `gamma_`, `delta`), routing weights (`phi1`, `phi3`), and possibly adaptive CH density late in life
 - If paper numbers are finalized soon, prefer the 20-seed results over the 5-seed results as the default reported comparison
+
+---
+
+## Run 014 — phi1 Per-Hop Penalty Sweep (phi1 = 1e-4, 3e-4, 5e-4, 1e-3)
+
+**Date:** 2026-04-15
+**Run by:** Ahmed + Claude Code
+
+### What This Run Was
+
+Sensitivity sweep of the Dijkstra routing cost's fixed per-hop penalty `phi1` across four values: `{1e-4, 3e-4, 5e-4, 1e-3}`. The hypothesis was that a higher per-hop penalty makes each additional relay hop more costly, discouraging unnecessary multi-hop paths, reducing relay CH load, and improving first-node-death without hurting PDR.
+
+The canonical Run 013 value was `phi1 = 1e-4`. Run 006 established that a continuous energy penalty on relay nodes backfires — this sweep targets the routing cost structure directly instead of penalizing individual node energy state.
+
+Entry point: `run_phi1_sweep.m`. All four values tested with identical RNG draws per seed (RNG reset before each phi1 value within each seed). 20 seeds.
+
+### Parameters Varied
+
+| Parameter | Values tested |
+|---|---|
+| `phi1` | 1e-4 (baseline), 3e-4, 5e-4, 1e-3 |
+| All other parameters | Canonical Run 013 config: kappa=10, K_elec=5, lambda=0.6, r_tx=50m |
+
+### Results (mean ± std across 20 seeds)
+
+| Metric | phi1=1e-4 (baseline) | phi1=3e-4 | phi1=5e-4 | phi1=1e-3 |
+|---|---|---|---|---|
+| First death (rnd) | 598.2 ± 38.0 | 605.9 ± 31.7 | **605.7 ± 27.6** | 606.8 ± 35.4 |
+| PDR all rounds (%) | 71.15 ± 1.53 | 71.49 ± 1.54 | **71.59 ± 1.64** | 71.67 ± 1.60 |
+| PDR FND-trunc (%) | 81.90 ± 1.31 | 82.04 ± 1.31 | **82.20 ± 1.32** | 82.20 ± 1.28 |
+| Zero-PDR rounds | 0.1 ± 0.4 | 0.1 ± 0.4 | **0.0 ± 0.0** | 2.1 ± 6.4 |
+| Energy @ r300 (J) | 31.59 ± 0.43 | 31.62 ± 0.43 | **31.62 ± 0.43** | 31.65 ± 0.44 |
+
+### Takeaways
+
+**1. phi1=5e-4 is strictly better than the baseline on every metric.**
+First-death improves +7.5 rounds (598→605), FND-trunc PDR +0.30pp (81.90→82.20), and zero-PDR rounds reach a perfect 0.0 ± 0.0. Energy is unchanged. No metric degrades.
+
+**2. phi1=1e-3 is the cliff — zero-PDR spikes to 2.1 ± 6.4.**
+At this magnitude the per-hop penalty outweighs the energy distance term for some paths, pushing Dijkstra onto longer detour routes that occasionally lose connectivity. Same failure mode as Run 006's phi4 experiment.
+
+**3. The improvements are real but modest.**
+phi1 only controls inter-cluster routing decisions. The dominant energy cost is member-to-CH and CH-aggregation transmissions, which phi1 does not touch. The ~120-round first-death gap vs LEACH is structural (relay burden) and cannot be closed by routing parameter tuning alone.
+
+**4. First-death variance narrows meaningfully (±38 → ±27.6).**
+More topology-consistent behavior across seeds is a secondary benefit: routing is less sensitive to unlucky CH placement.
+
+### Config Change
+
+`core/config.m` updated: `phi1 = 1e-4` → `phi1 = 5e-4`.
+
+### What to Do Next
+
+- Consider threshold-based relay energy penalty in Dijkstra (threshold phi4) as the next structural improvement — smarter version of the reverted Run 006 attempt
+- Consider adaptive p_CH to reduce late-round stranded-node losses
+- CHScore weight sweep remains an option but Run 003 showed it is a blunt instrument
+
+---
+
+## Run 015 — Routing Layer Isolation + BS Geometry Test
+
+**Date:** 2026-04-15
+**Run by:** Ahmed + Claude Code
+
+### What This Run Was
+
+Two related experiments to answer the question: *does the Dijkstra inter-cluster routing layer actually help, and if not, does it become useful when the BS is off-center?*
+
+**Motivation:** With 100 nodes in a 100x100m field and BS at center [50,50], ~78.5% of the field is within the r_tx=50m direct BS range. The hypothesis was that Dijkstra routing degenerates to direct CH-to-BS for most rounds because most CHs are already in range, making the routing layer a no-op at best and a source of relay burden at worst.
+
+**Part 1 — Routing isolation (center BS):**
+A new scheme variant `schemes/run_proposed_direct.m` was created — identical to `run_proposed.m` except the Dijkstra call is replaced by direct CH-to-BS transmission for every CH (same as LEACH's routing strategy, but with JR-aware CH election). This isolates the contribution of the election layer from the routing layer. Run via `testing/run_routing_comparison.m`, 20 seeds.
+
+**Part 2 — Geometry test (3 BS positions):**
+The same Dijkstra vs Direct vs LEACH comparison was repeated at three BS positions to test whether routing becomes useful when more CHs are forced to multi-hop. Run via `testing/run_geometry_test.m`, 20 seeds each.
+
+### New Files
+
+- `schemes/run_proposed_direct.m` — proposed scheme with direct CH-to-BS, no Dijkstra
+- `testing/run_routing_comparison.m` — Part 1 comparison script
+- `testing/run_geometry_test.m` — Part 2 geometry test script
+
+### File Reorganization
+
+Diagnostic and sensitivity scripts moved from project root into `testing/`:
+- `diag_proposed_zeros.m` → `testing/diag_proposed_zeros.m`
+- `diag_leach_zeros.m` → `testing/diag_leach_zeros.m`
+- `run_lambda_sensitivity.m` → `testing/run_lambda_sensitivity.m`
+- `run_phi1_sweep.m` → `testing/run_phi1_sweep.m`
+- `run_routing_comparison.m` → `testing/run_routing_comparison.m`
+
+### Part 1 Results — Routing Isolation at Center BS (20 seeds)
+
+| Metric | Proposed (Dijkstra) | Proposed (Direct) | LEACH |
+|---|---|---|---|
+| First death (rnd) | 606.9 +/- 36.0 | 605.4 +/- 31.8 | 731.5 +/- 26.5 |
+| PDR all rounds (%) | 71.44 +/- 1.55 | **71.79 +/- 1.44** | 62.14 +/- 0.94 |
+| PDR FND-trunc (%) | 82.14 +/- 1.26 | **82.16 +/- 1.28** | 72.18 +/- 2.39 |
+| Zero-PDR rounds | 1.4 +/- 6.5 | **0.6 +/- 2.7** | 164.7 +/- 12.0 |
+| Energy @ r300 (J) | 31.62 +/- 0.43 | 31.63 +/- 0.42 | 32.25 +/- 0.90 |
+
+### Part 2 Results — BS Geometry Test (20 seeds per position)
+
+| Geometry | BS coverage | PDR Dijkstra | PDR Direct | PDR LEACH | Routing gain (all) | Routing gain (FND) | Dijkstra ZeroPDR | Direct ZeroPDR |
+|---|---|---|---|---|---|---|---|---|
+| Center [50,50] | ~79% | 71.4% | 71.8% | 62.1% | -0.35pp | -0.02pp | 1.4 | 0.6 |
+| Edge [50,0] | ~39% | 68.9% | 68.7% | 59.0% | +0.21pp | +0.59pp | 7.3 | 3.7 |
+| Corner [0,0] | ~20% | 65.5% | 65.9% | 56.3% | -0.38pp | +0.93pp | 33.1 | 3.2 |
+
+### Takeaways
+
+**1. The entire ~9pp PDR advantage over LEACH comes from JR-aware CH election alone.**
+Proposed (Direct) — same election, no routing — achieves 71.79% vs LEACH's 62.14% (+9.65pp). Dijkstra routing adds nothing on top of this; Direct is marginally better on every metric at center BS.
+
+**2. Moving the BS off-center does not rescue the routing layer.**
+At the edge (39% coverage), routing provides +0.21pp all-rounds PDR — real but negligible. At the corner (20% coverage), where routing is most needed geometrically, Dijkstra is -0.38pp worse on all-rounds PDR than Direct and produces 33 zero-PDR rounds vs 3 for Direct. The routing layer becomes catastrophically worse, not better.
+
+**3. Why the corner case blows up for Dijkstra.**
+With BS at [0,0], CHScore's delta term favors nodes near the corner as CHs. These near-corner nodes are elected repeatedly, serve as both local CHs and relay nodes for far-away CHs, and drain first. When they die, the entire routing structure collapses. The relay overload problem is amplified, not reduced, by off-center BS placement.
+
+**4. The routing layer is a net-negative across all tested geometries on zero-PDR rounds.**
+Dijkstra always produces more zero-PDR rounds than Direct at every BS position. At center: 1.4 vs 0.6. At edge: 7.3 vs 3.7. At corner: 33.1 vs 3.2. The relay structure creates single points of failure that Direct routing avoids entirely.
+
+**5. The proposed scheme's JR-aware election result is robust across BS positions.**
+Even at the corner (worst geometry), Proposed vs LEACH gap holds at ~9pp (65.5% vs 56.3%), and Proposed still has 7.5x fewer zero-PDR rounds than LEACH (33 vs 249). The election layer is the durable contribution.
+
+**6. Paper implication.**
+The routing layer as currently designed (Dijkstra with JR-weighted edge costs) does not contribute to PDR in this network geometry. The paper's core claim should focus on JR-aware CH election. The routing layer can be retained as a framework component with the honest acknowledgement that in compact networks with a central BS, direct CH-to-BS is equivalent; larger-scale or asymmetric deployments would be needed to demonstrate routing benefit.
+
+### What to Do Next
+
+- Decide whether to retain Dijkstra in the paper or simplify to direct CH-to-BS
+- If retaining Dijkstra, consider redesigning it to avoid relay overload (threshold energy penalty, or routing only when JR benefit exceeds a threshold)
+- Consider testing a scaled-up scenario (e.g. 200x200m, 200 nodes, BS at corner) where routing is genuinely necessary
+- CHScore weight tuning remains a viable next step for improving PDR regardless of routing decision

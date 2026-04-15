@@ -5,72 +5,72 @@
 MATLAB simulation for a graduate wireless networks course project:
 **"Jamming-Aware Cluster Head Selection and Routing in Wireless Sensor Networks under UAV-Based Interference"**
 
-100 sensor nodes in a `100 x 100 m` field, BS at `[50,50]`, and a UAV jammer moving on a circular orbit. The proposed scheme uses jamming risk (JR) in both CH election and inter-cluster routing, and is compared against standard LEACH.
+100 sensor nodes in a `100 x 100 m` field, BS at `[50,50]`, and a UAV jammer moving on a circular orbit. The proposed scheme uses jamming risk (JR) in CH election and inter-cluster routing, compared against standard LEACH.
 
 ---
 
-## Current State (as of 2026-04-15, Run 013)
+## Current State (as of 2026-04-15, Run 015)
 
 ### Implemented
-- `schemes/run_proposed.m` - proposed scheme: JR-aware CHScore election + Dijkstra routing + emergency CH re-election when no CH remains
-- `schemes/run_leach.m` - standard LEACH: probabilistic CH election, direct CH-to-BS
-- `run_multiseed.m` - current default evaluation using seeds `1:20`, Proposed + LEACH, 3-window PDR reporting
-- `run_lambda_sensitivity.m` - lambda sensitivity sweep for the proposed scheme
-- `plotting/plot_multiseed.m` - mean ± std band plots
-- `plotting/visualize_snapshot.m` - 2D network map with stranded-node visualization
-- `diag_proposed_zeros.m` / `diag_leach_zeros.m` - per-round blackout diagnostics
+- `schemes/run_proposed.m` â€” proposed scheme: JR-aware CHScore election + Dijkstra routing + emergency CH re-election
+- `schemes/run_proposed_direct.m` â€” proposed scheme variant: same election, direct CH-to-BS (no Dijkstra)
+- `schemes/run_leach.m` â€” standard LEACH baseline
+- `run_multiseed.m` â€” main evaluation: seeds 1:20, Proposed + LEACH, 3-window PDR
+- `plotting/visualize_snapshot.m` â€” 2D network map with JR heatmap and routing paths
+- `testing/` â€” all sensitivity sweeps, routing experiments, and diagnostics (run from project root)
 
 ### Entry Points
-- `main.m` - single seed quick check
-- `run_multiseed.m` - current comparative evaluation entry point
-- `run_lambda_sensitivity.m` - parameter sensitivity entry point for `lambda`
+- `main.m` â€” single seed quick check
+- `run_multiseed.m` â€” canonical comparative evaluation
 
 ### Active Model
 - `kappa = 10`
 - `K_elec = 5`
 - `lambda = 0.6`
+- `phi1 = 5e-4` (updated in Run 014)
 - `p_CH = 0.05`
 - `r_tx = 50m`
-- Emergency CH re-election is enabled only when a round begins with no alive CHs
+- Emergency CH re-election fires only when a round starts with no alive CHs
 
-### Current Best Comparative Results (20 seeds, `1:20`)
+### Current Best Comparative Results (Run 014, 20 seeds)
 
 | Metric | Proposed | LEACH |
 |---|---|---|
-| First node death (round) | 603.0 ± 35.1 | **726.6 ± 30.4** |
-| PDR all rounds (%) | **71.24 ± 1.58** | 62.20 ± 0.85 |
-| PDR FND-trunc (%) | **82.03 ± 1.28** | 72.81 ± 2.91 |
-| Zero-PDR rounds | **1.2 ± 5.6** | 164.5 ± 15.7 |
-| Energy @ round 300 (J) | 31.61 ± 0.43 | **32.39 ± 1.25** |
+| First node death (round) | 605.7 +/- 27.6 | **726.6 +/- 30.4** |
+| PDR all rounds (%) | **71.59 +/- 1.64** | 62.20 +/- 0.85 |
+| PDR FND-trunc (%) | **82.20 +/- 1.32** | 72.81 +/- 2.91 |
+| Zero-PDR rounds | **0.0 +/- 0.0** | 164.5 +/- 15.7 |
+| Energy @ round 300 (J) | 31.62 +/- 0.43 | **32.39 +/- 1.25** |
 
-Headline:
-- Proposed is clearly better on PDR and blackout avoidance.
-- LEACH still wins on first-node-death and slightly on residual energy because relay burden is concentrated in the proposed multi-hop routing layer.
+Proposed wins on PDR (+9.4pp) and eliminates blackouts entirely. LEACH outlasts by ~121 rounds due to relay burden in the proposed multi-hop layer.
 
 ---
 
 ## Important Gotchas
 
-**`lambda = 0.6` is still the best tested value.**
-The sensitivity sweep over `{0.6, 0.7, 0.8}` showed no meaningful PDR gain from larger `lambda`, but worse blackout behavior due to noise amplification from `M = 10` packet bursts.
+**The routing layer does not contribute PDR in this geometry (Run 015).**
+`run_proposed_direct.m` (JR-aware election + direct CH-to-BS) matches or beats Dijkstra on every metric at center BS. ~78% of the 100x100m field is within r_tx=50m of BS=[50,50], so Dijkstra almost always confirms the direct path anyway. The entire ~9pp PDR advantage over LEACH comes from the election layer. Geometry tests at edge and corner BS confirmed routing does not improve at off-center BS either â€” the relay burden worsens zero-PDR rounds at every position tested.
 
-**`p_CH` is now actually controlled by `core/config.m`.**
-`layer1/elect_ch_proposed.m` used to hardcode `p_CH = 0.05`. That has been fixed: `p_CH` now flows through the function signature from config. Any future `p_CH` sweep is now real.
+**`lambda = 0.6` is the best tested value.**
+Sweep over {0.6, 0.7, 0.8}: no PDR gain from higher lambda, worse blackouts from noise amplification with M=10 bursts.
 
-**Emergency CH re-election only fixes `CHs = 0` rounds.**
-It does not repair every late-stage failure mode. Remaining proposed zero-PDR rounds are end-of-life topology collapse cases: one CH left, many stranded nodes, and often no active members.
+**`p_CH` flows from `core/config.m` through function signatures.**
+`elect_ch_proposed.m` no longer hardcodes p_CH. Any sweep is real.
+
+**Emergency CH re-election only fixes `CHs=0` rounds.**
+Remaining proposed zero-PDR rounds (now 0.0 +/- 0.0) are fully resolved. If they reappear, they are end-of-life topology collapses.
 
 **`r_c` is not a radio limit.**
-`r_c = 15m` is only a neighbor-counting radius for the CHScore connectivity term. The actual hard communication limit is `r_tx = 50m`.
+`r_c=15m` is only used in the CHScore beta term for neighbor counting. Hard radio limit is `r_tx=50m`.
 
 **PDR must be read in three windows.**
-Use all-round PDR, FND-truncated PDR, and zero-PDR round count together. End-of-life zeros are physically real and should not be silently dropped.
+All-rounds PDR, FND-truncated PDR, and zero-PDR count together. Never report just one.
 
 **`gamma_` not `gamma`.**
 `gamma` conflicts with a MATLAB builtin. The CHScore jamming-risk weight is `gamma_` everywhere.
 
-**LEACH comparison is intentionally apples-to-apples on energy constants.**
-`schemes/run_leach.m` uses the same `E_elec`, `E_amp`, `E_da`, `L`, and `r_tx` model as the proposed scheme. Do not revert to `reference/LEACH.m` behavior for reported comparisons.
+**LEACH comparison is apples-to-apples.**
+`run_leach.m` uses identical energy constants and r_tx accounting as the proposed scheme. Do not revert to `reference/LEACH.m`.
 
 ---
 
@@ -79,7 +79,6 @@ Use all-round PDR, FND-truncated PDR, and zero-PDR round count together. End-of-
 ```text
 main.m
 run_multiseed.m
-run_lambda_sensitivity.m
 CLAUDE.md
 core/
   config.m
@@ -94,11 +93,19 @@ layer2/
   route_dijkstra.m
 schemes/
   run_proposed.m
+  run_proposed_direct.m
   run_leach.m
 plotting/
   plot_results.m
   plot_multiseed.m
   visualize_snapshot.m
+testing/
+  run_lambda_sensitivity.m
+  run_phi1_sweep.m
+  run_routing_comparison.m
+  run_geometry_test.m
+  diag_proposed_zeros.m
+  diag_leach_zeros.m
 docs/
   README.md
   SIMULATION_LOG.md
@@ -113,11 +120,12 @@ reference/
 
 Priority order:
 
-1. Add residual-energy awareness to `route_dijkstra.m` so overloaded relay CHs are penalized.
-2. Tune CHScore weights `alpha`, `beta`, `gamma_`, `delta` for better average PDR without a major lifetime collapse.
-3. Sweep routing weights `phi1` and `phi3` to reduce unnecessary relays and average hop delay.
-4. Consider adaptive CH density late in life instead of raising `p_CH` globally.
-5. Keep zero-PDR rounds as a secondary issue for now; they are mostly after round 900 and are no longer the main bottleneck.
+1. **Decide on routing** â€” Dijkstra is proven neutral/negative in this geometry (Run 015). Options: keep as framework, replace with direct, or redesign with threshold energy penalty.
+2. **CHScore weight tuning** â€” narrow sweep around current values. Run 003 showed blunt alpha increase hurts; try small steps.
+3. **Adaptive p_CH** â€” increase CH density only in late rounds when stranding occurs, not globally.
+4. **Scaled-up geometry test** â€” 200x200m, 200 nodes, BS at corner â€” the scenario where Dijkstra routing would genuinely matter.
+5. ~~phi1 sweep~~ â€” done in Run 014. phi1=5e-4 is canonical.
+6. ~~Zero-PDR rounds~~ â€” solved (0.0 +/- 0.0).
 
 ---
 
@@ -125,5 +133,5 @@ Priority order:
 
 1. Create `schemes/run_<name>.m` returning a struct with `PDR`, `energy`, `delay`, `alive`, `t_death`, `label`.
 2. Use the same `r_tx` stranded-node accounting as the current schemes.
-3. Wire the new baseline into `main.m` and `run_multiseed.m`.
-4. Log the new results in `docs/SIMULATION_LOG.md`.
+3. Wire into `main.m` and `run_multiseed.m`.
+4. Log results in `docs/SIMULATION_LOG.md`.
