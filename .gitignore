@@ -1,2 +1,5 @@
 # Reference papers (PDFs) — keep local only
 *.pdf
+
+# Claude Code session data
+.claude/
