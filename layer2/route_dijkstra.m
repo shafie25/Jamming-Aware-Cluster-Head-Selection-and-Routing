@@ -91,13 +91,16 @@ function [paths, hop_counts] = route_dijkstra(x, y, is_CH, JR, BS, ...
             end
         end
 
-        % Reconstruct path from BS back to source
-        path_g = [];
+        % Reconstruct path from BS back to source (append then reverse)
+        path_g  = zeros(1, n_graph);
+        path_len = 0;
         cur = BS_g;
         while cur ~= 0
-            path_g = [cur, path_g];
+            path_len = path_len + 1;
+            path_g(path_len) = cur;
             cur = prev_g(cur);
         end
+        path_g = fliplr(path_g(1:path_len));
 
         % Convert graph indices back to node indices
         path_nodes = graph_nodes(path_g);

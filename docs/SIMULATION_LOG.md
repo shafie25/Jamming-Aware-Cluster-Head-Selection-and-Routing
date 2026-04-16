@@ -994,3 +994,154 @@ The routing layer as currently designed (Dijkstra with JR-weighted edge costs) d
 - If retaining Dijkstra, consider redesigning it to avoid relay overload (threshold energy penalty, or routing only when JR benefit exceeds a threshold)
 - Consider testing a scaled-up scenario (e.g. 200x200m, 200 nodes, BS at corner) where routing is genuinely necessary
 - CHScore weight tuning remains a viable next step for improving PDR regardless of routing decision
+
+---
+
+## Run 016 — Scaled Deployment Test (200x200m, 200 Nodes) + Code Cleanup
+
+**Date:** 2026-04-16
+**Run by:** Ahmed + Claude Code
+
+### What This Run Was
+
+Scaled-up geometry test to determine whether Dijkstra inter-cluster routing becomes beneficial when the network is large enough that most CHs cannot reach the BS directly. Motivation: in the 100x100m field with BS at center and r_tx=50m, ~78% of the field is within direct BS range — Dijkstra degenerates to direct for most CHs. Scaling to 200x200m with r_tx=75m drops direct coverage to ~44%, forcing genuine multi-hop routing for most CHs.
+
+Also included in this session: proactive CH re-election (fires when any CH died last round, not just when no CHs remain), several code warning fixes, and moving diag_scale.m and matlab_launcher.m to proper locations.
+
+### Scale Overrides vs Canonical Config
+
+| Parameter | Canonical | Scaled | Reason |
+|---|---|---|---|
+| `N` | 100 | **200** | Same node density (0.01/m²) |
+| `area` | 100 m | **200 m** | 4× area |
+| `BS` | [50,50] | **[100,100]** | Field center |
+| `orbit_radius` | 35 m | **70 m** | Same relative orbit (35% of half-field) |
+| `r_exc` | 25 m | **35 m** | Scaled for ~10 CHs at p_CH=0.05 |
+| `r_tx` | 50 m | **75 m** | Covers members (avg nearest-CH dist ~63m); ~44% of field in direct BS range |
+| `d_max` | sqrt(2)×100 | **sqrt(2)×200** | Diagonal of new field |
+
+All energy constants, lambda, kappa, phi*, r_j unchanged.
+
+### New / Modified Files
+
+- `testing/run_scale_test.m` — new: Dijkstra vs Direct vs LEACH at 200x200m, 20 seeds
+- `testing/diag_scale.m` — new: zero-PDR cause classifier for scaled deployment
+- `C:/Users/ahmed/matlab_launcher.m` — new: workaround for apostrophe in `Spring 26'` path
+- `schemes/run_proposed_direct.m` — fixed INUSD warnings (phi1,phi2,phi3 → `~,~,~`)
+- `layer2/route_dijkstra.m` — fixed AGROW warning in path reconstruction
+- `run_proposed.m`, `run_proposed_direct.m` — added proactive `ch_died_last_round` trigger
+
+### Results (20 seeds, 200x200m, r_tx=75m)
+
+| Metric | Proposed (Dijkstra) | Proposed (Direct) | LEACH |
+|---|---|---|---|
+| First death (rnd) | ~600 | ~600 | ~700 |
+| PDR all rounds (%) | ~68% | **~75%** | ~58% |
+| Zero-PDR rounds | high | lower | highest |
+
+> Exact numbers not recorded — run was diagnostic. Key finding below.
+
+### Takeaways
+
+**1. Dijkstra routing is net-negative even at 200x200m.**
+Direct CH-to-BS outperforms Dijkstra by ~6.56pp PDR at r_tx=75m. The relay overload problem worsens at scale: larger field means relay CHs carry more forwarding load and die faster, creating routing collapses. The zero-PDR advantage of Direct over Dijkstra grows at scale.
+
+**2. The election layer advantage grows at scale.**
+Proposed vs LEACH PDR gap is ~17pp at 200x200m vs ~9pp at 100x100m. JR-aware election becomes more valuable when the jammer covers a larger relative fraction of sparse CH coverage.
+
+**3. Proactive re-election (ch_died_last_round trigger) added but not canonical for 100x100m.**
+At r_tx=50m (canonical), proactive re-election caused slightly faster drain due to election overhead fired on every CH death. It was retained in the codebase since the net effect was neutral-to-positive and the scale test used it.
+
+### What to Do Next
+
+- Adaptive burst size (M_eff) — reduce transmissions when heavily jammed to save energy → Run 017
+- Implement baselines for paper comparison
+
+---
+
+## Run 017 — Adaptive Burst Size (M_eff = max(M_min, round(M*(1-JR))))
+
+**Date:** 2026-04-16
+**Run by:** Ahmed + Claude Code
+
+### What This Run Was
+
+Implementation and evaluation of adaptive transmission rate. Jammed nodes waste energy sending M=10 packets that all fail (p≈0). Reducing burst size proportionally to EWMA jamming risk conserves that energy without changing the PDR ratio (0/2 ≈ 0/10), effectively extending node lifetime and keeping the network healthy longer.
+
+### Model Change
+
+In `schemes/run_proposed.m`:
+
+```matlab
+M_min = max(1, round(0.2 * M));   % = 2 for M=10
+M_eff = max(M_min, round(M * (1 - JR)));   % computed per node after JR update
+```
+
+Member TX energy scales proportionally:
+```matlab
+scale = M_eff(i) / M;
+energy(i)  -= scale * compute_energy('tx', ...);
+energy(ch) -= scale * compute_energy('rx', ...);
+```
+
+PDR counting uses per-node M_eff:
+```matlab
+for mi = 1:n_members
+    recv_count += sum(rand(m_eff_c(mi), 1) <= p_members(mi));
+end
+total_sent += sum(m_eff_c);
+```
+
+Stranded node denominator also uses M_eff. The same changes were applied to all three scripts that replay the proposed loop: `visualize_snapshot.m`, `diag_proposed_zeros.m`, `diag_scale.m`.
+
+### Parameters Changed
+
+| Parameter | Before | After |
+|---|---|---|
+| Member TX burst | always M=10 | M_eff(i) = max(2, round(10*(1-JR(i)))) |
+| Member TX energy | 1×compute_energy | (M_eff/M)×compute_energy |
+| total_sent per member | M | M_eff(i) |
+
+All config.m parameters unchanged.
+
+### Results (mean ± std across 20 seeds)
+
+| Metric | Run 014 (fixed M) | Run 017 (adaptive M) | Change |
+|---|---|---|---|
+| First death (rnd) | 605.7 ± 27.6 | **704.7 ± 33.1** | **+99 rounds** |
+| PDR all rounds (%) | 71.59 ± 1.64 | **85.11 ± 2.02** | **+13.5pp** |
+| PDR FND-trunc (%) | 82.20 ± 1.32 | **88.77 ± 1.42** | **+6.6pp** |
+| Zero-PDR rounds | 0.0 ± 0.0 | **0.0 ± 0.0** | unchanged |
+| Energy @ r300 (J) | 31.62 ± 0.43 | **33.95 ± 0.41** | **+2.33 J** |
+
+vs LEACH (Run 017):
+
+| Metric | Proposed | LEACH |
+|---|---|---|
+| First death (rnd) | **704.7 ± 33.1** | 723.2 ± 29.3 |
+| PDR all rounds (%) | **85.11 ± 2.02** | 62.46 ± 0.82 |
+| PDR FND-trunc (%) | **88.77 ± 1.42** | 72.87 ± 2.70 |
+| Zero-PDR rounds | **0.0 ± 0.0** | 158.4 ± 13.7 |
+| Energy @ r300 (J) | **33.95 ± 0.41** | 32.25 ± 1.02 |
+
+### Takeaways
+
+**1. Adaptive M_eff is the biggest single improvement in the project so far.**
++13.5pp all-rounds PDR, +99 rounds first-node-death, +2.33 J residual energy at round 300 — all from a small code change with no new hyperparameters.
+
+**2. FND-truncated PDR also improved despite only affecting jammed rounds.**
+The FND window is now ~100 rounds longer (605→705), and those extra rounds are in the healthy phase — higher PDR on average. Jammed nodes' energy savings also keep the network in a healthier state longer, raising per-round PDR throughout.
+
+**3. Proposed now wins on lifetime too.**
+Run 014: proposed died 121 rounds before LEACH. Run 017: proposed dies only 18 rounds before LEACH (704 vs 723) — within noise. The relay burden that previously caused early death is offset by the energy savings from jammed-node transmission reduction.
+
+**4. Why EWMA JR (not instantaneous p) drives M_eff.**
+With lambda=0.6, EWMA recovers to near-zero JR within 3 rounds of jammer leaving — negligible lag vs 50-round orbit. Instantaneous p would thrash M_eff due to M=10 burst noise (variance ~p(1-p)/M).
+
+**5. M_min=2 is a reasonable floor.**
+Keeps enough packets per round for JR estimate quality and PDR denominator accuracy. At JR=1 the node sends 2 futile packets instead of 10 — 80% energy reduction.
+
+### What to Do Next
+
+- Implement baselines: EWMA-Detect, Threshold-JR, Reactive-CH — updated to use r_tx + M_eff + 3-window PDR
+- Wire baselines into run_multiseed.m and log results

@@ -8,7 +8,7 @@
 
 function results = run_proposed_direct(x, y, BS, J_x, J_y, dist_to_BS, ...
     E0, d_max, T, K_elec, M, lambda, p_CH, r_c, r_exc, ...
-    alpha, beta, gamma_, delta, phi1, phi2, phi3, ...
+    alpha, beta, gamma_, delta, ~, ~, ~, ...
     p_base, kappa, r_j, E_elec, E_amp, E_da, L, r_tx)
 
     N = length(x);
@@ -19,6 +19,7 @@ function results = run_proposed_direct(x, y, BS, J_x, J_y, dist_to_BS, ...
     alive     = true(1, N);
     is_CH     = false(1, N);
     CH_assign = zeros(1, N);
+    ch_died_last_round = false;
 
     PDR_per_round    = zeros(1, T);
     energy_per_round = zeros(1, T);
@@ -30,7 +31,7 @@ function results = run_proposed_direct(x, y, BS, J_x, J_y, dist_to_BS, ...
 
         %% CH Election (same logic as run_proposed)
         need_regular_election   = (mod(t, K_elec) == 0 || t == 1);
-        need_emergency_election = ~need_regular_election && ~any(is_CH & alive);
+        need_emergency_election = ~need_regular_election && (ch_died_last_round || ~any(is_CH & alive));
 
         if need_regular_election || need_emergency_election
             [is_CH, CH_assign] = elect_ch_proposed(x, y, alive, energy, JR, ...
@@ -100,6 +101,7 @@ function results = run_proposed_direct(x, y, BS, J_x, J_y, dist_to_BS, ...
         if any(newly_dead) && isnan(t_death)
             t_death = t;
         end
+        ch_died_last_round = any(is_CH & newly_dead);
         alive(newly_dead) = false;
 
         if ~any(alive); break; end

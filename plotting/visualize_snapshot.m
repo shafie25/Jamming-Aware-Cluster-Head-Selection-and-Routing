@@ -19,7 +19,7 @@ clc; clear; close all;
 addpath(genpath('.'));
 
 %% ---- User Settings -------------------------------------------------------
-snapshot_round = 976;    % target round — set to 0 for random pick in [75, 400]
+snapshot_round = 700;    % target round — set to 0 for random pick in [75, 400]
 seed           = 7;   % RNG seed (matches main.m)
 %% -------------------------------------------------------------------------
 
@@ -44,12 +44,14 @@ alive     = true(1, N);
 is_CH     = false(1, N);
 CH_assign = zeros(1, N);
 snap_paths = cell(1, N);
+ch_died_last_round = false;
+M_min = max(1, round(0.2 * M));
 
 for t = 1:snapshot_round
 
-    %% CH election (every K_elec rounds, round 1, or emergency when no alive CHs remain)
+    %% CH election (every K_elec rounds, round 1, or emergency)
     need_regular_election   = (mod(t, K_elec) == 0 || t == 1);
-    need_emergency_election = ~need_regular_election && ~any(is_CH & alive);
+    need_emergency_election = ~need_regular_election && (ch_died_last_round || ~any(is_CH & alive));
 
     if need_regular_election || need_emergency_election
         [is_CH, CH_assign] = elect_ch_proposed(x, y, alive, energy, JR, ...
@@ -73,14 +75,16 @@ for t = 1:snapshot_round
     %% Packet success + JR update
     p = compute_packet_success(x, y, alive, J_x(t), J_y(t), p_base, kappa, r_j);
     [PDR_ewma, JR] = update_jamming_risk(p, alive, is_CH, PDR_ewma, JR, M, lambda);
+    M_eff = max(M_min, round(M * (1 - JR)));
 
-    %% Member → CH transmission energy
+    %% Member → CH transmission energy (scaled by M_eff/M)
     for i = find(alive & ~is_CH)
         ch = CH_assign(i);
         if ch == 0; continue; end
+        scale      = M_eff(i) / M;
         d_to_CH    = sqrt((x(i)-x(ch))^2 + (y(i)-y(ch))^2);
-        energy(i)  = energy(i)  - compute_energy('tx', L, E_elec, E_amp, E_da, d_to_CH, 0);
-        energy(ch) = energy(ch) - compute_energy('rx', L, E_elec, E_amp, E_da, 0, 0);
+        energy(i)  = energy(i)  - scale * compute_energy('tx', L, E_elec, E_amp, E_da, d_to_CH, 0);
+        energy(ch) = energy(ch) - scale * compute_energy('rx', L, E_elec, E_amp, E_da, 0, 0);
     end
 
     %% Inter-cluster routing
@@ -110,6 +114,7 @@ for t = 1:snapshot_round
 
     %% Node death
     newly_dead = alive & (energy <= 0);
+    ch_died_last_round = any(is_CH & newly_dead);
     alive(newly_dead) = false;
     if ~any(alive); break; end
 end

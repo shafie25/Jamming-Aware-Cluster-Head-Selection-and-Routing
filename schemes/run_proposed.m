@@ -11,7 +11,8 @@ function results = run_proposed(x, y, BS, J_x, J_y, dist_to_BS, ...
     alpha, beta, gamma_, delta, phi1, phi2, phi3, ...
     p_base, kappa, r_j, E_elec, E_amp, E_da, L, r_tx)
 
-    N = length(x);
+    N     = length(x);
+    M_min = max(1, round(0.2 * M));   % floor burst size (20% of M)
 
     %% Initialize node state
     energy   = E0 * ones(1, N);
@@ -20,6 +21,7 @@ function results = run_proposed(x, y, BS, J_x, J_y, dist_to_BS, ...
     alive    = true(1, N);
     is_CH    = false(1, N);
     CH_assign = zeros(1, N);
+    ch_died_last_round = false;
 
     %% Initialize metrics storage
     PDR_per_round        = zeros(1, T);
@@ -33,7 +35,7 @@ function results = run_proposed(x, y, BS, J_x, J_y, dist_to_BS, ...
 
         %% --- CH Election (every K_elec rounds) ---
         need_regular_election = (mod(t, K_elec) == 0 || t == 1);
-        need_emergency_election = ~need_regular_election && ~any(is_CH & alive);
+        need_emergency_election = ~need_regular_election && (ch_died_last_round || ~any(is_CH & alive));
 
         if need_regular_election || need_emergency_election
             [is_CH, CH_assign] = elect_ch_proposed(x, y, alive, energy, JR, ...
@@ -61,13 +63,18 @@ function results = run_proposed(x, y, BS, J_x, J_y, dist_to_BS, ...
         %% --- Member Transmission + JR Update ---
         [PDR_ewma, JR] = update_jamming_risk(p, alive, is_CH, PDR_ewma, JR, M, lambda);
 
-        % Deduct transmission energy for member nodes
+        % Adaptive burst size: heavily jammed nodes transmit fewer packets
+        % to conserve energy. M_eff(i) = max(M_min, round(M*(1-JR(i))))
+        M_eff = max(M_min, round(M * (1 - JR)));   % vector, one per node
+
+        % Deduct transmission energy for member nodes, scaled by M_eff/M
         for i = find(alive & ~is_CH)
             ch = CH_assign(i);
             if ch == 0; continue; end
+            scale     = M_eff(i) / M;
             d_to_CH   = sqrt((x(i) - x(ch))^2 + (y(i) - y(ch))^2);
-            energy(i) = energy(i) - compute_energy('tx', L, E_elec, E_amp, E_da, d_to_CH, 0);
-            energy(ch)= energy(ch) - compute_energy('rx', L, E_elec, E_amp, E_da, 0, 0);
+            energy(i) = energy(i) - scale * compute_energy('tx', L, E_elec, E_amp, E_da, d_to_CH, 0);
+            energy(ch)= energy(ch) - scale * compute_energy('rx', L, E_elec, E_amp, E_da, 0, 0);
         end
 
         %% --- CH Aggregation + Routing ---
@@ -88,11 +95,15 @@ function results = run_proposed(x, y, BS, J_x, J_y, dist_to_BS, ...
             % Aggregation energy
             energy(c) = energy(c) - compute_energy('agg', L, E_elec, E_amp, E_da, 0, n_members);
 
-            % Count packets received this round for PDR metric
-            p_members  = p(members_c);
-            recv_count = sum(rand(M, n_members) <= p_members, 'all');
+            % Count packets received — each member sends M_eff(i) packets
+            p_members   = p(members_c);
+            m_eff_c     = M_eff(members_c);
+            recv_count  = 0;
+            for mi = 1:n_members
+                recv_count = recv_count + sum(rand(m_eff_c(mi), 1) <= p_members(mi));
+            end
             total_recv = total_recv + recv_count;
-            total_sent = total_sent + n_members * M;
+            total_sent = total_sent + sum(m_eff_c);
 
             % Route along optimal path, deduct energy per hop
             path = paths{c};
@@ -115,9 +126,8 @@ function results = run_proposed(x, y, BS, J_x, J_y, dist_to_BS, ...
             n_CH_active = n_CH_active + 1;
         end
 
-        %% --- Stranded nodes: count their packets as lost in denominator ---
-        n_stranded = sum(alive & ~is_CH & (CH_assign == 0));
-        total_sent = total_sent + n_stranded * M;
+        %% --- Stranded nodes: count their (reduced) packets as lost in denominator ---
+        total_sent = total_sent + sum(M_eff(alive & ~is_CH & (CH_assign == 0)));
 
         %% --- Record Metrics ---
         PDR_per_round(t)    = (total_sent > 0) * total_recv / max(total_sent, 1);
@@ -128,8 +138,9 @@ function results = run_proposed(x, y, BS, J_x, J_y, dist_to_BS, ...
         %% --- Node Death Check ---
         newly_dead = alive & (energy <= 0);
         if any(newly_dead) && isnan(t_death)
-            t_death = t;   % record first node death round
+            t_death = t;
         end
+        ch_died_last_round = any(is_CH & newly_dead);
         alive(newly_dead) = false;
 
         % If no alive nodes remain, stop early

@@ -16,6 +16,8 @@ JR        = zeros(1, N);
 alive     = true(1, N);
 is_CH     = false(1, N);
 CH_assign = zeros(1, N);
+ch_died_last_round = false;
+M_min = max(1, round(0.2 * M));
 
 PDR_per_round = zeros(1, T);
 
@@ -28,7 +30,7 @@ for t = 1:T
 
     %% CH Election (every K_elec rounds)
     need_regular_election = (mod(t, K_elec) == 0 || t == 1);
-    need_emergency_election = ~need_regular_election && ~any(is_CH & alive);
+    need_emergency_election = ~need_regular_election && (ch_died_last_round || ~any(is_CH & alive));
 
     if need_regular_election || need_emergency_election
         [is_CH, CH_assign] = elect_ch_proposed(x, y, alive, energy, JR, ...
@@ -52,14 +54,16 @@ for t = 1:T
     %% Packet Success + JR Update
     p = compute_packet_success(x, y, alive, J_x(t), J_y(t), p_base, kappa, r_j);
     [PDR_ewma, JR] = update_jamming_risk(p, alive, is_CH, PDR_ewma, JR, M, lambda);
+    M_eff = max(M_min, round(M * (1 - JR)));
 
-    %% Member Transmission
+    %% Member Transmission (scaled by M_eff/M)
     for i = find(alive & ~is_CH)
         ch = CH_assign(i);
         if ch == 0; continue; end
+        scale      = M_eff(i) / M;
         d_to_CH    = sqrt((x(i)-x(ch))^2 + (y(i)-y(ch))^2);
-        energy(i)  = energy(i)  - compute_energy('tx', L, E_elec, E_amp, E_da, d_to_CH, 0);
-        energy(ch) = energy(ch) - compute_energy('rx', L, E_elec, E_amp, E_da, 0, 0);
+        energy(i)  = energy(i)  - scale * compute_energy('tx', L, E_elec, E_amp, E_da, d_to_CH, 0);
+        energy(ch) = energy(ch) - scale * compute_energy('rx', L, E_elec, E_amp, E_da, 0, 0);
     end
 
     %% CH Aggregation + Routing
@@ -75,9 +79,13 @@ for t = 1:T
 
         energy(c) = energy(c) - compute_energy('agg', L, E_elec, E_amp, E_da, 0, n_members);
         p_members  = p(members_c);
-        recv_count = sum(rand(M, n_members) <= p_members, 'all');
+        m_eff_c    = M_eff(members_c);
+        recv_count = 0;
+        for mi = 1:n_members
+            recv_count = recv_count + sum(rand(m_eff_c(mi), 1) <= p_members(mi));
+        end
         total_recv = total_recv + recv_count;
-        total_sent = total_sent + n_members * M;
+        total_sent = total_sent + sum(m_eff_c);
 
         path = paths{c};
         if isempty(path); continue; end
@@ -97,7 +105,7 @@ for t = 1:T
     end
 
     n_stranded = sum(alive & ~is_CH & (CH_assign == 0));
-    total_sent = total_sent + n_stranded * M;
+    total_sent = total_sent + sum(M_eff(alive & ~is_CH & (CH_assign == 0)));
 
     PDR_per_round(t) = (total_sent > 0) * total_recv / max(total_sent, 1);
 
@@ -135,6 +143,7 @@ for t = 1:T
 
     %% Node Death
     newly_dead = alive & (energy <= 0);
+    ch_died_last_round = any(is_CH & newly_dead);
     alive(newly_dead) = false;
     if ~any(alive); break; end
 end
