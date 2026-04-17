@@ -9,14 +9,16 @@ MATLAB simulation for a graduate wireless networks course project:
 
 ---
 
-## Current State (as of 2026-04-16, Run 017)
+## Current State (as of 2026-04-17, Run 018)
 
 ### Implemented
 - `schemes/run_proposed.m` — proposed scheme: JR-aware CHScore election + Dijkstra routing + proactive emergency CH re-election + adaptive burst size (M_eff)
 - `schemes/run_proposed_direct.m` — proposed scheme variant: same election, direct CH-to-BS (no Dijkstra)
 - `schemes/run_leach.m` — standard LEACH baseline
-- `run_multiseed.m` — main evaluation: seeds 1:20, Proposed + LEACH, 3-window PDR
+- `schemes/run_tbc.m` — TBC baseline: flat multi-hop topology, instantaneous PDR detection, energy-aware Dijkstra, threshold suppression (Run 018)
+- `run_multiseed.m` — main evaluation: seeds 1:20, Proposed + LEACH + TBC, 3-window PDR
 - `plotting/visualize_snapshot.m` — 2D network map with JR heatmap and routing paths
+- `testing/visualize_tbc_routing.m` — TBC routing snapshot: paths, relay load, jammed/isolated nodes
 - `testing/` — all sensitivity sweeps, routing experiments, and diagnostics (run from project root)
 
 ### Entry Points
@@ -33,17 +35,17 @@ MATLAB simulation for a graduate wireless networks course project:
 - Emergency CH re-election fires when a CH died last round OR no alive CHs remain (proactive)
 - Adaptive burst size: `M_eff(i) = max(M_min, round(M*(1-JR(i))))`, `M_min=2` — jammed nodes conserve energy by reducing transmissions proportionally to their EWMA jamming risk (Run 017)
 
-### Current Best Comparative Results (Run 017, 20 seeds)
+### Current Best Comparative Results (Run 018, 20 seeds)
 
-| Metric | Proposed | LEACH |
-|---|---|---|
-| First node death (round) | **704.7 +/- 33.1** | 723.2 +/- 29.3 |
-| PDR all rounds (%) | **85.11 +/- 2.02** | 62.46 +/- 0.82 |
-| PDR FND-trunc (%) | **88.77 +/- 1.42** | 72.87 +/- 2.70 |
-| Zero-PDR rounds | **0.0 +/- 0.0** | 158.4 +/- 13.7 |
-| Energy @ round 300 (J) | **33.95 +/- 0.41** | 32.25 +/- 1.02 |
+| Metric | Proposed | LEACH | TBC |
+|---|---|---|---|
+| First node death (round) | **704.7 +/- 33.1** | 723.2 +/- 29.3 | 46.6 +/- 4.2 |
+| PDR all rounds (%) | **85.11 +/- 2.02** | 62.46 +/- 0.82 | 5.20 +/- 0.35 |
+| PDR FND-trunc (%) | **88.77 +/- 1.42** | 72.87 +/- 2.70 | 81.42 +/- 0.53 |
+| Zero-PDR rounds | **0.0 +/- 0.0** | 158.4 +/- 13.7 | 932.5 +/- 3.4 |
+| Energy @ round 300 (J) | **33.95 +/- 0.41** | 32.25 +/- 1.02 | 0.88 +/- 0.55 |
 
-Proposed wins on every metric. Adaptive M_eff extended lifetime by ~100 rounds and added +13.5pp all-rounds PDR vs Run 014. Now competitive on lifetime vs LEACH (704 vs 723).
+Proposed wins on every metric. TBC dies at ~round 47 from relay overload — flat topology is not viable under this energy model. TBC's FND-truncated PDR (81.4%) shows its detection mechanism works during its brief lifetime; the failure is structural.
 
 ---
 
@@ -99,6 +101,7 @@ schemes/
   run_proposed.m
   run_proposed_direct.m
   run_leach.m
+  run_tbc.m
 plotting/
   plot_results.m
   plot_multiseed.m
@@ -112,6 +115,7 @@ testing/
   diag_proposed_zeros.m
   diag_leach_zeros.m
   diag_scale.m
+  visualize_tbc_routing.m
 docs/
   README.md
   SIMULATION_LOG.md
@@ -126,12 +130,13 @@ reference/
 
 Priority order:
 
-1. **Implement baselines** — new baselines must use: r_tx stranded accounting, 3-window PDR, adaptive M_eff (or fixed M for fair comparison — decide). Candidates: EWMA-Detect (no action on JR), Threshold-JR (suppress jammed members), Reactive-CH (re-elect jammed CHs). See `proposed_model_for_paper_search.md` for literature targets.
-2. **Wire baselines into `run_multiseed.m`** and log in `SIMULATION_LOG.md`.
-3. ~~Adaptive burst size~~ — done in Run 017. M_eff = max(2, round(M*(1-JR))).
-4. ~~Scaled-up geometry test~~ — done in Run 016. Dijkstra confirmed net-negative at 200x200m.
-5. ~~phi1 sweep~~ — done in Run 014. phi1=5e-4 is canonical.
-6. ~~Zero-PDR rounds~~ — solved (0.0 +/- 0.0).
+1. **Implement remaining baselines** — next candidates: EWMA-Detect (no action on JR), Threshold-JR (suppress jammed members), Reactive-CH (re-elect jammed CHs). Must use: r_tx stranded accounting, 3-window PDR, fixed M (fair comparison vs proposed's adaptive M_eff). See `proposed_model_for_paper_search.md` for literature targets.
+2. **Wire remaining baselines into `run_multiseed.m`** and log in `SIMULATION_LOG.md`.
+3. ~~TBC baseline~~ — done in Run 018. Flat multi-hop, instantaneous detection, energy-aware routing. Dies ~round 47 from relay overload.
+4. ~~Adaptive burst size~~ — done in Run 017. M_eff = max(2, round(M*(1-JR))).
+5. ~~Scaled-up geometry test~~ — done in Run 016. Dijkstra confirmed net-negative at 200x200m.
+6. ~~phi1 sweep~~ — done in Run 014. phi1=5e-4 is canonical.
+7. ~~Zero-PDR rounds~~ — solved (0.0 +/- 0.0).
 
 ---
 

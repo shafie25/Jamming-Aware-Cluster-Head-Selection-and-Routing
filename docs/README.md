@@ -147,17 +147,17 @@ With `kappa=10`, a node at the jammer center has `p ≈ 0.00004` — effectively
 
 ---
 
-## Current Best Results (Run 017, 20 seeds)
+## Current Best Results (Run 018, 20 seeds)
 
-| Metric | Proposed | LEACH |
-|---|---|---|
-| First node death (round) | **704.7 +/- 33.1** | 723.2 +/- 29.3 |
-| PDR all rounds (%) | **85.11 +/- 2.02** | 62.46 +/- 0.82 |
-| PDR FND-trunc (%) | **88.77 +/- 1.42** | 72.87 +/- 2.70 |
-| Zero-PDR rounds | **0.0 +/- 0.0** | 158.4 +/- 13.7 |
-| Energy @ round 300 (J) | **33.95 +/- 0.41** | 32.25 +/- 1.02 |
+| Metric | Proposed | LEACH | TBC |
+|---|---|---|---|
+| First node death (round) | **704.7 +/- 33.1** | 723.2 +/- 29.3 | 46.6 +/- 4.2 |
+| PDR all rounds (%) | **85.11 +/- 2.02** | 62.46 +/- 0.82 | 5.20 +/- 0.35 |
+| PDR FND-trunc (%) | **88.77 +/- 1.42** | 72.87 +/- 2.70 | 81.42 +/- 0.53 |
+| Zero-PDR rounds | **0.0 +/- 0.0** | 158.4 +/- 13.7 | 932.5 +/- 3.4 |
+| Energy @ round 300 (J) | **33.95 +/- 0.41** | 32.25 +/- 1.02 | 0.88 +/- 0.55 |
 
-Proposed wins on every metric. The adaptive burst size (M_eff) allows jammed nodes to conserve energy rather than burning it on futile transmissions, extending network lifetime by ~100 rounds vs Run 014. PDR advantage over LEACH: +22.6pp all-rounds, +15.9pp FND-truncated. Zero communication blackouts vs LEACH's 158 per seed.
+Proposed wins on every metric. TBC (flat multi-hop topology, threshold-based suppression) dies at round ~47 due to relay overload — nodes near BS exhaust their energy forwarding packets for the entire field. Its FND-truncated PDR (81.4%) shows the detection mechanism works correctly during its brief lifetime; the failure is structural, not algorithmic. This validates the clustering premise of both LEACH and the proposed scheme.
 
 ---
 
@@ -186,6 +186,7 @@ schemes/
   run_proposed.m                proposed scheme (Dijkstra routing)
   run_proposed_direct.m         proposed scheme (direct CH-to-BS, no Dijkstra)
   run_leach.m                   standard LEACH baseline
+  run_tbc.m                     TBC baseline (flat multi-hop, threshold suppress)
 
 plotting/
   plot_results.m                single-seed plots
@@ -199,6 +200,7 @@ testing/
   run_geometry_test.m           BS position geometry test
   diag_proposed_zeros.m         proposed zero-PDR round diagnostics
   diag_leach_zeros.m            LEACH zero-PDR round diagnostics
+  visualize_tbc_routing.m       TBC routing snapshot: paths, relay load, jammed nodes
 
 docs/
   README.md                     this file

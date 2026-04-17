@@ -10,21 +10,21 @@ addpath(genpath('.'));
 
 seeds   = 1:20;
 n_seeds = length(seeds);
-n_schemes = 2;
+n_schemes = 3;
 
 %% Pre-allocate storage (need T — load config once)
 config;
 
 store = struct();
 fields = {'PDR','energy','delay','alive'};
-labels = {'proposed','leach'};
+labels = {'proposed','leach','tbc'};
 
 for f = 1:length(fields)
     for l = 1:length(labels)
         store.(fields{f}).(labels{l}) = zeros(n_seeds, T);
     end
 end
-tdeath = zeros(n_seeds, n_schemes);   % cols: proposed, leach
+tdeath = zeros(n_seeds, n_schemes);   % cols: proposed, leach, tbc
 
 %% Run both schemes for each seed
 for s = 1:n_seeds
@@ -56,18 +56,28 @@ for s = 1:n_seeds
     store.alive.leach(s,:)  = rl.alive;
     tdeath(s,2) = rl.t_death;
     fprintf('  LEACH        t_death=%d\n', rl.t_death);
+
+    %% TBC Baseline
+    rt = run_tbc(x, y, BS, J_x, J_y, ...
+        E0, T, M, p_base, kappa, r_j, E_elec, E_amp, L, r_tx);
+    store.PDR.tbc(s,:)    = rt.PDR;
+    store.energy.tbc(s,:) = rt.energy;
+    store.delay.tbc(s,:)  = rt.delay;
+    store.alive.tbc(s,:)  = rt.alive;
+    tdeath(s,3) = rt.t_death;
+    fprintf('  TBC          t_death=%d\n', rt.t_death);
 end
 
 %% Compute summary statistics
-scheme_names  = {'Proposed','LEACH'};
+scheme_names  = {'Proposed','LEACH','TBC'};
 scheme_fields = labels;
 
 fprintf('\n\n========================================\n');
 fprintf('Multi-Seed Results (seeds: %s)\n', num2str(seeds));
 fprintf('========================================\n\n');
 
-fprintf('%-22s | %-20s | %-20s\n', 'Metric', scheme_names{:});
-fprintf('%s\n', repmat('-',1,68));
+fprintf('%-22s | %-20s | %-20s | %-20s\n', 'Metric', scheme_names{:});
+fprintf('%s\n', repmat('-',1,92));
 
 % First node death
 fprintf('%-22s |', 'First death (rnd)');
@@ -120,7 +130,7 @@ for k = 1:n_schemes
     fprintf(' %6.2f +/- %5.2f      |', mean(em), std(em));
 end
 fprintf('\n');
-fprintf('%s\n', repmat('-',1,68));
+fprintf('%s\n', repmat('-',1,92));
 
 %% Build structs for plotting
 ms = cell(1, n_schemes);

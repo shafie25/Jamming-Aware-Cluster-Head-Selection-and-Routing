@@ -31,8 +31,14 @@ results_leach = run_leach(x, y, BS, J_x, J_y, E0, T, M, ...
     p_base, kappa, r_j, E_elec, E_amp, E_da, L, r_tx);
 fprintf('  LEACH         first node death: round %d\n', results_leach.t_death);
 
+%% Run TBC Baseline
+fprintf('Running TBC baseline...\n');
+results_tbc = run_tbc(x, y, BS, J_x, J_y, ...
+    E0, T, M, p_base, kappa, r_j, E_elec, E_amp, L, r_tx);
+fprintf('  TBC           first node death: round %d\n', results_tbc.t_death);
+
 fprintf('Done.\n');
 
 %% Plot Results
-results_all = {results_proposed, results_leach};
+results_all = {results_proposed, results_leach, results_tbc};
 plot_results(results_all, T);
