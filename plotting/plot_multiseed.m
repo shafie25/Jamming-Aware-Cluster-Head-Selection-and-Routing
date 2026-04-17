@@ -14,10 +14,13 @@ function plot_multiseed(results_all, T)
     rounds    = 1:T;
     n_schemes = length(results_all);
 
-    % Colorblind-friendly palette
+    % Colorblind-friendly palette (extend here when adding schemes)
     colors = {
-        [0.18, 0.45, 0.69], ...   % blue — Proposed
-        [0.80, 0.15, 0.15]  ...   % red  — LEACH
+        [0.18, 0.45, 0.69], ...   % blue   — Proposed
+        [0.80, 0.15, 0.15], ...   % red    — LEACH
+        [0.13, 0.63, 0.30], ...   % green  — TBC
+        [0.85, 0.53, 0.10], ...   % orange — spare
+        [0.55, 0.20, 0.65]  ...   % purple — spare
     };
 
     figure('Position', [100, 100, 1400, 900]);
@@ -82,6 +85,6 @@ function plot_multiseed(results_all, T)
     title('Network Lifetime (mean \pm std)');
     legend('Location', 'southwest', 'FontSize', 8); grid on;
 
-    sgtitle('Jamming-Aware WSN Simulation — 5-Seed Average (All Schemes)');
+    sgtitle('Jamming-Aware WSN Simulation — 20-Seed Average (All Schemes)');
 
 end
