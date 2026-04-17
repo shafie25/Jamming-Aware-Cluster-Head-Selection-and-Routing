@@ -23,7 +23,7 @@ function plot_results(results_all, T)
     hold on;
     for s = 1:n_schemes
         r = results_all{s};
-        plot(rounds, r.PDR, colors{s}, 'LineWidth', 1.5, 'DisplayName', r.label);
+        plot(rounds, r.PDR, 'Color', colors{s}, 'LineWidth', 1.5, 'DisplayName', r.label);
     end
     xlabel('Round'); ylabel('PDR');
     title('Packet Delivery Ratio vs. Round');
@@ -34,7 +34,7 @@ function plot_results(results_all, T)
     hold on;
     for s = 1:n_schemes
         r = results_all{s};
-        plot(rounds, r.energy, colors{s}, 'LineWidth', 1.5, 'DisplayName', r.label);
+        plot(rounds, r.energy, 'Color', colors{s}, 'LineWidth', 1.5, 'DisplayName', r.label);
     end
     xlabel('Round'); ylabel('Total Residual Energy (J)');
     title('Network Energy vs. Round');
@@ -45,7 +45,7 @@ function plot_results(results_all, T)
     hold on;
     for s = 1:n_schemes
         r = results_all{s};
-        plot(rounds, r.delay, colors{s}, 'LineWidth', 1.5, 'DisplayName', r.label);
+        plot(rounds, r.delay, 'Color', colors{s}, 'LineWidth', 1.5, 'DisplayName', r.label);
     end
     xlabel('Round'); ylabel('Avg Hops');
     title('Average End-to-End Delay vs. Round');
@@ -56,10 +56,10 @@ function plot_results(results_all, T)
     hold on;
     for s = 1:n_schemes
         r = results_all{s};
-        plot(rounds, r.alive, colors{s}, 'LineWidth', 1.5, 'DisplayName', r.label);
+        plot(rounds, r.alive, 'Color', colors{s}, 'LineWidth', 1.5, 'DisplayName', r.label);
         % Mark first node death
         if ~isnan(r.t_death)
-            xline(r.t_death, '--', colors{s}, 'Alpha', 0.5);
+            xline(r.t_death, '--', 'Color', colors{s}, 'Alpha', 0.5);
         end
     end
     xlabel('Round'); ylabel('Alive Nodes');
