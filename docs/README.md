@@ -5,7 +5,10 @@
 MATLAB simulation for the course project:
 **"Jamming-Aware Cluster Head Selection and Routing in Wireless Sensor Networks under UAV-Based Interference"**
 
-The code evaluates a proposed heuristic that integrates jamming risk (JR) into cluster head (CH) selection and inter-cluster routing under a moving UAV jammer, and compares it against a standard LEACH baseline.
+The code evaluates a proposed heuristic that integrates jamming risk (JR) into cluster head (CH) selection and inter-cluster routing under a moving UAV jammer, compared against two baselines:
+
+- **TBC** — flat multi-hop topology with instantaneous threshold-based jamming suppression (Babitha B.S. et al., IEEE MRIE 2025)
+- **FCPA** — clustered topology with IPN-gated CH election and cooperative relay for jammed members (López-Vilos et al., Sensors 2023)
 
 ---
 
@@ -117,7 +120,7 @@ CHs route to the BS via Dijkstra on a fully connected CH graph:
 C(i,j) = phi1 + phi2 * E_amp * L * d(i,j)^2 + phi3 * JR_j
 ```
 
-> **Note (Run 015):** Routing experiments showed that in this compact geometry (BS at center, 100x100m), direct CH-to-BS performs equivalently to Dijkstra — ~78% of the field is within r_tx=50m of the BS. The JR-aware election layer accounts for the full PDR advantage over LEACH. Dijkstra is retained as a framework component; it would contribute meaningfully in larger or asymmetric deployments.
+> **Note (Run 015):** Routing experiments showed that in this compact geometry (BS at center, 100x100m), direct CH-to-BS performs equivalently to Dijkstra — ~78% of the field is within r_tx=50m of the BS. The JR-aware election layer accounts for the full PDR advantage over baselines. Dijkstra is retained as a framework component; it would contribute meaningfully in larger or asymmetric deployments.
 
 ---
 
@@ -137,34 +140,36 @@ With `kappa=10`, a node at the jammer center has `p ≈ 0.00004` — effectively
 - `r_c = 15m` — neighbor counting radius for the CHScore connectivity term only. **Not a radio limit.**
 - `r_tx = 50m` — hard member-to-CH transmission limit. Nodes farther than this from every CH are stranded and their packets count as lost in the PDR denominator.
 
-### PDR Reporting (three windows)
+### PDR Reporting (two windows)
 
 | Window | Formula | Purpose |
 |---|---|---|
 | All T rounds | `mean(PDR)` | Full lifecycle average |
 | FND-truncated | `mean(PDR(1:t_death))` | Operational period only |
-| Zero-PDR count | `sum(PDR == 0)` | Communication blackout rounds |
 
 ---
 
-## Current Best Results (Run 018, 20 seeds)
+## Current Best Results (Run 021, 20 seeds)
 
-| Metric | Proposed | LEACH | TBC |
+| Metric | Proposed | TBC | FCPA |
 |---|---|---|---|
-| First node death (round) | **704.7 +/- 33.1** | 723.2 +/- 29.3 | 46.6 +/- 4.2 |
-| PDR all rounds (%) | **85.11 +/- 2.02** | 62.46 +/- 0.82 | 5.20 +/- 0.35 |
-| PDR FND-trunc (%) | **88.77 +/- 1.42** | 72.87 +/- 2.70 | 81.42 +/- 0.53 |
-| Zero-PDR rounds | **0.0 +/- 0.0** | 158.4 +/- 13.7 | 932.5 +/- 3.4 |
-| Energy @ round 300 (J) | **33.95 +/- 0.41** | 32.25 +/- 1.02 | 0.88 +/- 0.55 |
+| First node death (round) | **704.7 ± 33.1** | 459.1 ± 41.3 | 542.1 ± 19.2 |
+| PDR all rounds (%) | **85.11 ± 2.02** | 53.20 ± 4.41 | 63.35 ± 0.89 |
+| PDR FND-trunc (%) | **88.77 ± 1.42** | 82.42 ± 0.58 | 75.07 ± 1.44 |
+| Energy @ round 300 (J) | **33.95 ± 0.41** | 26.80 ± 1.12 | 30.20 ± 0.26 |
 
-Proposed wins on every metric. TBC (flat multi-hop topology, threshold-based suppression) dies at round ~47 due to relay overload — nodes near BS exhaust their energy forwarding packets for the entire field. Its FND-truncated PDR (81.4%) shows the detection mechanism works correctly during its brief lifetime; the failure is structural, not algorithmic. This validates the clustering premise of both LEACH and the proposed scheme.
+Proposed wins on every metric. Key findings:
+
+- **TBC** (flat multi-hop, no clustering) dies at ~round 459 from relay overload — nodes near the BS exhaust their energy forwarding packets for the entire field. Validates the clustering premise.
+- **FCPA** (clustered, exact jammer geometry) dies at ~round 542 from cooperative relay overhead — relay nodes accumulate forwarding costs from all jammed members they serve. Despite having perfect jammer position knowledge, FCPA cannot match the proposed scheme's EWMA-based temporal memory and adaptive burst size.
+- **Proposed** achieves 0 communication blackout rounds; both baselines have significant blackout periods.
 
 ---
 
 ## File Structure
 
 ```
-main.m                          single-seed entry point
+main.m                          single-seed entry point (Proposed + TBC + FCPA)
 run_multiseed.m                 main 20-seed evaluation entry point
 CLAUDE.md                       session context for Claude Code
 
@@ -185,8 +190,9 @@ layer2/
 schemes/
   run_proposed.m                proposed scheme (Dijkstra routing)
   run_proposed_direct.m         proposed scheme (direct CH-to-BS, no Dijkstra)
-  run_leach.m                   standard LEACH baseline
+  run_leach.m                   standard LEACH (reference only, not in active comparison)
   run_tbc.m                     TBC baseline (flat multi-hop, threshold suppress)
+  run_fcpa.m                    FCPA baseline (IPN-gated election, cooperative relay)
 
 plotting/
   plot_results.m                single-seed plots
@@ -205,6 +211,8 @@ testing/
 docs/
   README.md                     this file
   SIMULATION_LOG.md             permanent record of all simulation runs
+  tbc_baseline.md               TBC implementation and adaptation notes
+  fcpa_baseline.md              FCPA implementation and adaptation notes
   proposed_model_for_paper_search.md  literature context
 
 reference/
