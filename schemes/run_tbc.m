@@ -178,20 +178,20 @@ function results = run_tbc(x, y, BS, J_x, J_y, ...
                     d_hop = dist_nodes(cur, nh);
                 end
 
-                % TX energy at current node
-                energy_delta(cur) = energy_delta(cur) - recv_packets * (L*E_elec + L*E_amp*d_hop^2);
+                % TX energy at current node.
+                % Scale by recv_packets/M so that a full burst (recv_packets==M)
+                % costs exactly L*E_elec + L*E_amp*d^2 — the same convention used
+                % by compute_energy('tx') in run_proposed/run_leach, where L is the
+                % total round payload (M packets combined), not per-packet size.
+                energy_delta(cur) = energy_delta(cur) - (recv_packets/M) * (L*E_elec + L*E_amp*d_hop^2);
 
                 % RX energy at next hop (BS has infinite energy)
                 if nh ~= BS_idx
-                    energy_delta(nh) = energy_delta(nh) - recv_packets * L * E_elec;
+                    energy_delta(nh) = energy_delta(nh) - (recv_packets/M) * L * E_elec;
                 end
 
-                % Channel loss at this hop — use success probability of the sender
-                for pk = 1:recv_packets
-                    if rand() > p(cur)
-                        recv_packets = recv_packets - 1;
-                    end
-                end
+                % Channel loss at this hop — vectorised Bernoulli over surviving packets
+                recv_packets = sum(rand(recv_packets, 1) <= p(cur));
 
                 cur  = nh;
                 hops = hops + 1;

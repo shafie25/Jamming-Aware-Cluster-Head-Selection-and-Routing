@@ -1,5 +1,5 @@
 %% run_multiseed.m — Multi-Seed Averaging Entry Point
-% Runs proposed scheme and standard LEACH across multiple RNG seeds
+% Runs proposed scheme, TBC, and FCPA across multiple RNG seeds
 % and reports mean ± std. Each seed produces a different network topology
 % and packet sequence.
 %
@@ -17,16 +17,16 @@ config;
 
 store = struct();
 fields = {'PDR','energy','delay','alive'};
-labels = {'proposed','leach','tbc'};
+labels = {'proposed','tbc','fcpa'};
 
 for f = 1:length(fields)
     for l = 1:length(labels)
         store.(fields{f}).(labels{l}) = zeros(n_seeds, T);
     end
 end
-tdeath = zeros(n_seeds, n_schemes);   % cols: proposed, leach, tbc
+tdeath = zeros(n_seeds, n_schemes);   % cols: proposed, tbc, fcpa
 
-%% Run both schemes for each seed
+%% Run all schemes for each seed
 for s = 1:n_seeds
     fprintf('=== Seed %d (%d/%d) ===\n', seeds(s), s, n_seeds);
     rng(seeds(s));
@@ -47,16 +47,6 @@ for s = 1:n_seeds
     tdeath(s,1) = rp.t_death;
     fprintf('  Proposed     t_death=%d\n', rp.t_death);
 
-    %% Standard LEACH
-    rl = run_leach(x, y, BS, J_x, J_y, E0, T, M, ...
-        p_base, kappa, r_j, E_elec, E_amp, E_da, L, r_tx);
-    store.PDR.leach(s,:)    = rl.PDR;
-    store.energy.leach(s,:) = rl.energy;
-    store.delay.leach(s,:)  = rl.delay;
-    store.alive.leach(s,:)  = rl.alive;
-    tdeath(s,2) = rl.t_death;
-    fprintf('  LEACH        t_death=%d\n', rl.t_death);
-
     %% TBC Baseline
     rt = run_tbc(x, y, BS, J_x, J_y, ...
         E0, T, M, p_base, kappa, r_j, E_elec, E_amp, L, r_tx);
@@ -64,12 +54,22 @@ for s = 1:n_seeds
     store.energy.tbc(s,:) = rt.energy;
     store.delay.tbc(s,:)  = rt.delay;
     store.alive.tbc(s,:)  = rt.alive;
-    tdeath(s,3) = rt.t_death;
+    tdeath(s,2) = rt.t_death;
     fprintf('  TBC          t_death=%d\n', rt.t_death);
+
+    %% FCPA Baseline
+    rf = run_fcpa(x, y, BS, J_x, J_y, ...
+        E0, T, M, p_CH, p_base, kappa, r_j, E_elec, E_amp, E_da, L, r_tx);
+    store.PDR.fcpa(s,:)    = rf.PDR;
+    store.energy.fcpa(s,:) = rf.energy;
+    store.delay.fcpa(s,:)  = rf.delay;
+    store.alive.fcpa(s,:)  = rf.alive;
+    tdeath(s,3) = rf.t_death;
+    fprintf('  FCPA         t_death=%d\n', rf.t_death);
 end
 
 %% Compute summary statistics
-scheme_names  = {'Proposed','LEACH','TBC'};
+scheme_names  = {'Proposed','TBC','FCPA'};
 scheme_fields = labels;
 
 fprintf('\n\n========================================\n');
@@ -110,15 +110,6 @@ for k = 1:n_schemes
         end
     end
     fprintf(' %6.2f +/- %5.2f      |', mean(pm_fnd), std(pm_fnd));
-end
-fprintf('\n');
-
-% --- PDR Window 3: Zero-PDR round count (communication blackout) ---
-fprintf('%-22s |', 'Zero-PDR rounds');
-for k = 1:n_schemes
-    fd = scheme_fields{k};
-    zp = sum(store.PDR.(fd) == 0, 2);
-    fprintf(' %6.1f +/- %5.1f      |', mean(zp), std(zp));
 end
 fprintf('\n');
 

@@ -12,8 +12,8 @@ function plot_results(results_all, T)
     % Colorblind-friendly palette matching plot_multiseed.m
     colors = {
         [0.18, 0.45, 0.69], ...   % blue   — Proposed
-        [0.80, 0.15, 0.15], ...   % red    — LEACH
-        [0.13, 0.63, 0.30], ...   % green  — TBC
+        [0.80, 0.15, 0.15], ...   % red    — TBC
+        [0.13, 0.63, 0.30], ...   % green  — FCPA
         [0.85, 0.53, 0.10], ...   % orange — spare
         [0.55, 0.20, 0.65]  ...   % purple — spare
     };
