@@ -1394,3 +1394,59 @@ Identical simulation to Run 020. Zero-PDR round count removed from `run_multisee
 | Energy @ round 300 (J) | **33.95 ± 0.41** | 26.80 ± 1.12 | 30.20 ± 0.26 |
 
 Results confirmed stable across seeds. Canonical comparison going forward: Proposed vs TBC vs FCPA, four-metric table above.
+
+---
+
+## Paper Finalization — 2026-04-19
+
+**Date:** 2026-04-19
+**Run by:** Ahmed + Claude Code
+
+### What Was Done
+
+No simulation changes. Paper write-up and figure export completed.
+
+### New Files
+
+| File | Description |
+|---|---|
+| `paper.tex` | Complete IEEE-format conference paper (all sections) |
+| `references.bib` | BibTeX entries for the three cited baselines |
+| `plotting/export_figures.m` | Runs full 20-seed sim internally, exports PDF + PNG figures |
+| `figures/fig_combined.pdf` | 3-panel publication figure: PDR, Residual Energy, Alive Nodes |
+| `figures/fig_pdr.pdf` | PDR vs Round (individual figure) |
+| `figures/fig_energy.pdf` | Residual Energy vs Round (individual figure) |
+| `figures/fig_alive.pdf` | Alive Nodes vs Round (individual figure) |
+
+### Paper Structure
+
+The paper follows IEEEtran conference format with these sections:
+
+1. **Introduction** — UAV jamming motivation, related work ([1] EWMA-detect, [2] TBC, [3] FCPA), three specific contributions, organization
+2. **System Model** — network layout, jammer model figure, brief description
+3. **Proposed Scheme** — six subsections:
+   - A. Network and Jammer Model (Eqs. 1–3: orbit, distance, packet success)
+   - B. Jamming Risk Estimation (Eqs. 4–6: PDR, EWMA, JR)
+   - C. Adaptive Burst Size Control (Eq. 7: M_eff — **new subsection added**)
+   - D. Jamming-Aware CH Selection (Eq. 8: CHScore multline)
+   - E. Jamming-Aware Inter-Cluster Routing (Eqs. 9–10: path cost, argmin)
+   - F. Algorithm 1 — full pseudocode including M_eff and emergency re-election
+4. **Simulation Results** — baseline descriptions, setup paragraph, Table I (parameters), Table II (Run 021 results), `fig_combined.pdf`, Discussion (4 paragraphs: PDR advantage, memory vs geometry, clustering validation, energy/lifetime)
+5. **Conclusion** — summary + future work
+
+### Key Paper Numbers (from Run 021, 20 seeds)
+
+| Metric | Proposed | TBC | FCPA |
+|---|---|---|---|
+| PDR all rounds (%) | **85.11 ± 2.02** | 53.20 ± 4.41 | 63.35 ± 0.89 |
+| PDR FND-trunc (%) | **88.77 ± 1.42** | 82.42 ± 0.58 | 75.07 ± 1.44 |
+| First node death (round) | **704.7 ± 33.1** | 459.1 ± 41.3 | 542.1 ± 19.2 |
+| Energy @ round 300 (J) | **33.95 ± 0.41** | 26.80 ± 1.12 | 30.20 ± 0.26 |
+
+### Overleaf Upload List
+
+Upload these four files: `paper.tex`, `references.bib`, `figures/fig_combined.pdf`, `system_model.pdf`
+
+### Project Status
+
+**COMPLETE.** Simulation, evaluation, and paper write-up are all finished.

@@ -9,7 +9,7 @@ MATLAB simulation for a graduate wireless networks course project:
 
 ---
 
-## Current State (as of 2026-04-18, Run 021)
+## Current State (as of 2026-04-19, Paper Complete)
 
 ### Implemented
 - `schemes/run_proposed.m` — proposed scheme: JR-aware CHScore election + Dijkstra routing + proactive emergency CH re-election + adaptive burst size (M_eff)
@@ -19,12 +19,17 @@ MATLAB simulation for a graduate wireless networks course project:
 - `schemes/run_fcpa.m` — FCPA baseline: IPN-gated CH election + cooperative relay for jammed members (Run 020, adapted from López-Vilos et al. Sensors 2023)
 - `run_multiseed.m` — main evaluation: seeds 1:20, Proposed + TBC + FCPA, 2-window PDR + energy@r300
 - `plotting/visualize_snapshot.m` — 2D network map with JR heatmap and routing paths
+- `plotting/export_figures.m` — runs full 20-seed sim and exports publication-quality PDFs/PNGs to `figures/`
 - `testing/visualize_tbc_routing.m` — TBC routing snapshot: paths, relay load, jammed/isolated nodes
 - `testing/` — all sensitivity sweeps, routing experiments, and diagnostics (run from project root)
+- `paper.tex` — complete IEEE-format paper (all sections written and finalized)
+- `references.bib` — BibTeX entries for all three cited baselines
+- `figures/` — exported figure PDFs and PNGs ready for Overleaf upload
 
 ### Entry Points
 - `main.m` — single seed quick check (Proposed + TBC + FCPA)
 - `run_multiseed.m` — canonical comparative evaluation
+- `plotting/export_figures.m` — regenerate all paper figures (runs 20-seed sim internally)
 
 ### Active Model
 - `kappa = 10`
@@ -110,6 +115,15 @@ plotting/
   plot_results.m
   plot_multiseed.m
   visualize_snapshot.m
+  export_figures.m           (NEW) publication figure export for Overleaf
+figures/
+  fig_combined.pdf           3-panel PDR + Energy + Alive (paper Fig. 2)
+  fig_pdr.pdf
+  fig_energy.pdf
+  fig_alive.pdf
+  *.png                      300 DPI PNG copies of each figure
+paper.tex                    complete IEEE-format paper
+references.bib               BibTeX entries for [1][2][3]
 testing/
   run_lambda_sensitivity.m
   run_phi1_sweep.m
@@ -132,12 +146,13 @@ reference/
 
 ---
 
-## What To Work On Next
+## Project Status: COMPLETE (2026-04-19)
 
-Priority order:
+The simulation, evaluation, and paper write-up are finished. Everything needed for submission is in the repo.
 
-1. **Paper write-up** — three baselines are in place. The comparison story is complete: TBC (no clustering), FCPA (clustering + exact geometry, no memory), Proposed (clustering + EWMA + adaptive M_eff). Each baseline isolates one component.
-2. **Remaining optional baselines** — EWMA-Detect (LEACH + JR tracking, no adaptation), Threshold-JR (suppress jammed members), Reactive-CH (re-elect jammed CHs). Lower priority now that the main comparison is clean.
+### Done
+1. ~~Paper write-up~~ — `paper.tex` complete. All sections written: Abstract, Introduction, Related Work, Contributions, System Model, Proposed Scheme (including M_eff subsection), Simulation Results (Table I parameters, Table II results, Figure, Discussion), Conclusion. `references.bib` created.
+2. ~~Figure export~~ — `plotting/export_figures.m` written and run. `figures/fig_combined.pdf` generated and ready for Overleaf.
 3. ~~FCPA baseline~~ — done in Run 020. IPN-gated election + cooperative relay.
 4. ~~TBC energy fix~~ — done in Run 019. recv_packets/M scaling corrected.
 5. ~~TBC baseline~~ — done in Run 018/019. Flat multi-hop, threshold suppression.
@@ -145,6 +160,9 @@ Priority order:
 7. ~~Scaled-up geometry test~~ — done in Run 016. Dijkstra confirmed net-negative at 200x200m.
 8. ~~phi1 sweep~~ — done in Run 014. phi1=5e-4 is canonical.
 9. ~~Zero-PDR rounds~~ — solved (0.0 +/- 0.0 for proposed).
+
+### To Submit
+Upload to Overleaf: `paper.tex`, `references.bib`, `figures/fig_combined.pdf`, `system_model.pdf`
 
 ---
 
