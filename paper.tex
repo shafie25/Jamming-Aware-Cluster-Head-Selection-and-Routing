@@ -4,20 +4,27 @@
 \usepackage{amsmath,amssymb,amsfonts}
 \usepackage{graphicx}
 \usepackage{textcomp}
-\usepackage{xcolor}
+\usepackage[dvipsnames]{xcolor}
 \usepackage{csquotes}
 \usepackage{url}
 \usepackage{array}
 \usepackage{multirow}
 \usepackage{stmaryrd}
-\usepackage{algorithm}
-\usepackage{color}
-\usepackage[dvipsnames]{xcolor}
 \usepackage{booktabs}
+\usepackage{placeins}
 \urlstyle{same}
-\usepackage{algorithm2e}
+\usepackage[ruled,vlined,nofloat]{algorithm2e}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta, positioning}
+
+% Allow floats to occupy more of a page before being deferred
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\bottomfraction}{0.8}
+\renewcommand{\textfraction}{0.07}
+\renewcommand{\floatpagefraction}{0.7}
+\setcounter{topnumber}{9}
+\setcounter{bottomnumber}{9}
+\setcounter{totalnumber}{20}
 
 \bibliographystyle{IEEEtran}
 
@@ -35,25 +42,20 @@ Emails: b00095145@aus.edu, b00097313@aus.edu, b00096027@aus.edu, b00096574@aus.e
 \maketitle
 
 \begin{abstract}
-Wireless sensor networks deployed in safety-critical environments
-face growing threats from unmanned aerial vehicle mounted jammers
-that suppress packet delivery across dynamically moving interference
-zones. Existing countermeasures either operate on flat multi-hop
-topologies that suffer rapid relay overload, or require exact jammer
-location knowledge unavailable to deployed sensors. This paper
-proposes a jamming-aware cluster head selection and routing scheme
-that estimates per-node jamming risk exclusively from locally observed
-packet delivery outcomes using an exponentially weighted moving
-average, requiring no geometric jammer model. The estimated risk
-drives a multi-criterion cluster head scoring function and an adaptive
-burst-size mechanism that reduces per-node transmissions proportionally
-to current jamming risk, conserving energy during interference periods.
-A proactive emergency re-election trigger restores cluster head coverage
-within a single round of any failure. Evaluation over 20 random
-topologies shows the proposed scheme achieves 85.11 percent mean packet
-delivery ratio, outperforming a geometry-aware cooperative relay baseline
-by 21.76 percentage points and a threshold-based flat-topology baseline
-by 31.91 percentage points, while extending first-node-death to round 705.
+Wireless sensor networks face growing threats from UAV-mounted jammers
+that create dynamically moving interference zones. Existing
+countermeasures either collapse under relay overload on flat topologies
+or require exact jammer location knowledge unavailable to deployed
+sensors. We propose a jamming-aware cluster head selection and routing
+scheme that estimates per-node jamming risk solely from observed packet
+outcomes using an exponentially weighted moving average, requiring no
+geometric jammer model. The risk estimate drives a multi-criterion
+cluster head election, an adaptive burst-size mechanism that conserves
+energy under jamming, and a proactive emergency re-election trigger.
+Evaluated over 20 random topologies, the proposed scheme achieves
+85.11\% mean packet delivery ratio, outperforming geometry-aware and
+threshold-based baselines by 21.76 and 31.91 percentage points
+respectively, while extending first-node-death to round 705.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -124,10 +126,9 @@ interference-plus-noise (IPN) metric to gate cluster head candidacy and
 routes jammed members through cooperative relay paths. FCPA achieves
 strong per-round delivery ratios but its IPN gate resets every round
 with no memory of prior jamming, and its cooperative relay mechanism
-introduces additional energy overhead on relay nodes. In contrast to all
-three baselines, the proposed scheme combines EWMA temporal smoothing
-with structural adaptation at both the election and transmission layers,
-requiring no jammer geometry information.
+introduces additional energy overhead on relay nodes. In contrast to both baselines, the proposed scheme combines EWMA
+temporal smoothing with structural adaptation at both the election and
+transmission layers, requiring no jammer geometry information.
 
 \subsection{Paper Contributions}
 
@@ -197,9 +198,10 @@ rounds and integrates jamming risk estimation into both cluster head
 Consider a WSN consisting of $N$ static sensor nodes
 $\mathcal{S} = \{s_1, s_2, \ldots, s_N\}$ deployed randomly over a
 square field of side length $L_p$ meters, with a fixed base station
-(sink) $BS$ located at the field center. Each node communicates within
-a fixed communication range $r_c = 15$ m. The network operates in
-discrete rounds indexed by $t = 1, 2, \ldots, T$.
+(sink) $BS$ located at the field center. Each node has a maximum
+transmission range of $r_{tx} = 50$ m; nodes beyond this radius from
+every cluster head are stranded and their packets counted as lost. The
+network operates in discrete rounds indexed by $t = 1, 2, \ldots, T$.
 
 A UAV-based jammer moves above the network along a circular orbit,
 with its position at round $t$ denoted as $J(t) = (x_j(t),\, y_j(t))$.
@@ -396,111 +398,134 @@ algorithm on the weighted inter-cluster graph:
 Algorithm~\ref{alg:proposed} summarizes the complete round-by-round
 operation of the proposed scheme.
 
-\begin{algorithm}[H]
+\begin{algorithm}
 \caption{Jamming-Aware CH Selection and Routing}
 \label{alg:proposed}
 \SetAlgoLined
-\KwIn{Node set $\mathcal{S}$, sink $BS$, jammer trajectory $J(t)$,
-parameters $M, K, \lambda, \kappa, p_{base}, \alpha, \beta, \gamma,
-\delta, \phi_1, \phi_2, \phi_3$}
-\KwOut{PDR$(t)$, energy consumption, end-to-end delay, network lifetime}
+\KwIn{$\mathcal{S}$, $BS$; all parameters as in Table~\ref{tab:params}}
+\KwOut{$\mathrm{PDR}(t)$, residual energy, $|\mathcal{S}_{alive}(t)|$,
+$t_{death}$}
 
-Initialize $E_i(0) = E_0$,\ $\widetilde{PDR}_i(0) = 1$,\
-$JR_i(0) = 0$ \textbf{for all} $s_i \in \mathcal{S}$\;
+\textbf{Init:} $E_i(0)\!\leftarrow\!E_0$,\;
+$\widetilde{PDR}_i(0)\!\leftarrow\!1$,\;
+$JR_i(0)\!\leftarrow\!0$\quad $\forall\,s_i\in\mathcal{S}$\;
+$\mathrm{emergency} \leftarrow \mathrm{false}$\;
 
-\For{each round $t = 1, 2, \ldots, T$}{
-    Update jammer position $J(t) = (x_j(t),\, y_j(t))$\;
+\For{$t = 1, 2, \ldots, T$}{
 
-    \For{each alive node $s_i \in \mathcal{S}$}{
-        Compute $d_{i,J}(t)$ using Eq.~(2)\;
-        Compute packet success probability $p_i(t)$ using Eq.~(3)\;
+    Compute $d_{i,J}(t)$ and $p_i(t)$ for all alive $s_i$
+        \tcp*[r]{Eqs.~(1)--(3)}
+
+    \If{$(t \bmod K_{elec} = 0)$ \normalfont\textbf{or}
+        $\mathrm{emergency}$}{
+
+        $K \leftarrow \mathrm{round}\!\left(
+            p_{CH} \cdot |\mathcal{S}_{alive}(t)|\right)$\;
+
+        Elect $\mathcal{C}(t)$: top-$K$ nodes by $CHScore_i(t)$,
+        suppressing within $r_{exc}$ of each elected CH
+            \tcp*[r]{Eq.~(8)}
+
+        Assign $s_i \notin \mathcal{C}(t)$ to nearest
+        $s_c \in \mathcal{C}(t)$; flag stranded if $d > r_{tx}$\;
+
+        $\mathrm{emergency} \leftarrow \mathrm{false}$\;
     }
 
-    \If{$t \bmod K_{elec} = 0$ \textnormal{\textbf{or}} emergency trigger}{
-        \For{each alive node $s_i \in \mathcal{S}$}{
-            Compute $CHScore_i(t)$ using Eq.~(8)\;
-        }
-        Select top-scoring nodes as CH set $\mathcal{C}(t)$ with
-        exclusion radius $r_{exc}$\;
-        Assign each non-CH node to nearest CH; flag stranded nodes\;
+    \For{each member $s_i \notin \mathcal{C}(t)$}{
+
+        $M_{\mathrm{eff},i}(t) \leftarrow
+            \max\!\left(M_{\min},\;
+            \left\lfloor M\left(1 - JR_i(t)\right)\right\rfloor\right)$
+            \tcp*[r]{Eq.~(7)}
+
+        Transmit $M_{\mathrm{eff},i}(t)$ packets to CH,
+        each succeeding w.p.\ $p_i(t)$; count $P^{recv}_i(t)$\;
+
+        $PDR_i(t) \leftarrow P^{recv}_i(t) / M_{\mathrm{eff},i}(t)$\;
+
+        $\widetilde{PDR}_i(t) \leftarrow
+            \lambda\,PDR_i(t) +
+            (1-\lambda)\,\widetilde{PDR}_i(t{-}1)$
+            \tcp*[r]{Eq.~(5)}
+
+        $JR_i(t) \leftarrow 1 - \widetilde{PDR}_i(t)$
+            \tcp*[r]{Eq.~(6)}
+
+        Deduct TX/RX energy $\propto M_{\mathrm{eff},i}(t)/M$\;
     }
 
-    \For{each member node $s_i \notin \mathcal{C}(t)$}{
-        Compute adaptive burst size $M_{\text{eff},i}(t)$ using
-        Eq.~(7)\;
-        Transmit burst of $M_{\text{eff},i}$ packets to assigned CH\;
-        $\forall~p \in$ packets: draw $u \sim \mathcal{U}(0,1)$;
-        packet succeeds if $u \leq p_i(t)$\;
-        Count $P^{recv}_i(t)$; compute $PDR_i(t) = P^{recv}_i(t) /
-        M_{\text{eff},i}$ using Eq.~(4)\;
-        Update $\widetilde{PDR}_i(t)$ using Eq.~(5); update $JR_i(t)$
-        using Eq.~(6)\;
-        Deduct TX energy scaled by $M_{\text{eff},i}/M$ from $s_i$;
-        deduct RX energy from CH\;
+    \For{each $s_c \in \mathcal{C}(t)$}{
+
+        $\mathcal{P}^*(s_c) \leftarrow
+            \underset{\mathcal{P}}{\arg\min}
+            \displaystyle\sum_{(s_i,s_j)\in\mathcal{P}}
+            C(s_i,s_j,t)$\quad via Dijkstra
+            \tcp*[r]{Eq.~(9)}
+
+        Forward data along $\mathcal{P}^*(s_c)$;
+        deduct hop-by-hop TX/RX energy\;
     }
 
-    \For{each CH $s_c \in \mathcal{C}(t)$}{
-        Aggregate received packets\;
-        Compute optimal path $\mathcal{P}^*$ to $BS$ via Dijkstra on
-        $C(s_i, s_j, t)$ using Eq.~(9)\;
-        Forward data along $\mathcal{P}^*$; deduct energy per hop for
-        sender and receiver\;
-        Accumulate end-to-end delay along $\mathcal{P}^*$\;
-    }
+    Record $\mathrm{PDR}(t)$, total residual energy,
+    $|\mathcal{S}_{alive}(t)|$\;
 
-    Record PDR$(t)$, total energy consumed, average end-to-end delay\;
-
-    \For{each alive node $s_i \in \mathcal{S}$}{
+    \For{each alive $s_i$}{
         \If{$E_i(t) \leq 0$}{
-            Mark $s_i$ as dead and remove from $\mathcal{S}$\;
-            Record $t_{death} = t$ if first node death\;
+            Remove $s_i$ from $\mathcal{S}$;
+            record $t_{death}$ on first death\;
+            \lIf{$s_i \in \mathcal{C}(t)$}
+                {$\mathrm{emergency} \leftarrow \mathrm{true}$}
         }
     }
-    Trigger emergency re-election if any CH died this round\;
+
+    \lIf{$\mathcal{C}(t)\cap\mathcal{S}_{alive}(t)=\emptyset$}
+        {$\mathrm{emergency} \leftarrow \mathrm{true}$}
 }
 \end{algorithm}
 
 \section{Simulation Results}
 \label{sec:results}
 
-The proposed scheme is evaluated against three baseline comparison
+The proposed scheme is evaluated against two baseline comparison
 techniques drawn from the literature, each representing a distinct
 level of jamming-awareness in clustered WSNs.
 
 \begin{itemize}
 
-    \item \textbf{EWMA-Based Detection (Baseline 1)}~\cite{9915936}:
-    An Exponentially Weighted Moving Average (EWMA) control chart
-    applied to per-node SNR measurements in a clustered WSN. Jammed
-    nodes are detected when their EWMA-smoothed SNR drops below a
-    statically computed lower control limit and are subsequently
-    removed from the network topology. No cluster head re-election and
-    no routing cost function are triggered upon detection. This baseline
-    represents the minimum viable response, detection only with no
-    structural adaptation, and is used to isolate the contribution of
-    jamming-aware routing and CH selection.
+    \item \textbf{Threshold-Based Countermeasure (TBC)}~\cite{11156845}:
+    A lightweight threshold-based scheme in which each node monitors its
+    instantaneous per-round PDR against a static threshold ($T = 0.5$).
+    Nodes whose PDR falls below the threshold are flagged as jammed and
+    excluded from routing paths for that round, resuming when their PDR
+    recovers. TBC operates on a flat non-hierarchical network with no
+    cluster head election and no transmission rate adaptation. In our
+    implementation, routing uses energy-weighted Dijkstra (edge cost
+    $\propto d \cdot E_0 / E_i(t)$) to distribute relay load away from
+    depleted nodes; the original paper's key-management stage is omitted
+    as it targets replay attacks rather than jamming. TBC represents the
+    strongest detection-plus-rerouting baseline without CH-level jamming
+    awareness.
 
-    \item \textbf{Threshold-Based Countermeasure (Baseline 2)}~\cite{11156845}:
-    A lightweight threshold-based scheme (TBC) in which each node
-    monitors its Packet Delivery Ratio (PDR) against a static baseline
-    threshold. Nodes whose PDR drops below the threshold are flagged as
-    jammed and removed from routing paths topologically, with no routing
-    cost function, energy weighting, or CH re-election. TBC operates on
-    a flat non-hierarchical network and represents the strongest
-    detection-plus-rerouting baseline without CH-level jamming awareness.
-
-    \item \textbf{Self-Healing Clustering, FCPA (Baseline 3)}~\cite{s23156894}:
-    A reactive clustering and self-healing scheme for WSNs under jamming,
-    implemented here in simplified form. Upon jammer detection, K-medoids
-    re-clustering is triggered using Chebyshev distance weighted by
-    interference-plus-noise (IPN) to reposition cluster heads away from
-    the jammer. Isolated nodes are connected via relay chains selected by
-    a nearest-neighbor max-min SINR criterion. If a CH is jammed, its
-    cluster is dissolved and members are reassigned to the nearest
-    surviving CH. This baseline represents the strongest reactive
-    comparison: it reorganizes cluster topology in response to jamming,
-    but does so only after cluster failure occurs, in contrast to our
-    proactive CHScore-based avoidance.
+    \item \textbf{Self-Healing Clustering (FCPA)}~\cite{s23156894}:
+    A geometry-aware clustering scheme that uses an
+    interference-plus-noise (IPN) metric, derived from exact jammer
+    position, to gate cluster head candidacy and route jammed members
+    through cooperative two-hop relay paths. In our implementation, the
+    IPN gate is computed as a binary geometric criterion
+    ($d_{i,J}(t) < r_j$), equivalent to the paper's power-based
+    threshold under our channel model. The original K-medoids
+    re-clustering is replaced by the LEACH epoch mechanism with IPN
+    eligibility filtering, preserving the core intent of electing CHs
+    from geometrically safe regions while remaining compatible with
+    the round-by-round energy budget. The variable-power mode and
+    key-management components are omitted as inapplicable to our fixed-
+    amplitude energy model. Burst size is fixed at $M = 10$ throughout,
+    isolating the effect of the IPN-aware election and cooperative relay
+    from any adaptive transmission benefits. FCPA represents the
+    strongest comparison baseline: it has access to exact jammer geometry
+    every round, whereas the proposed scheme estimates jamming risk
+    solely from observed packet outcomes.
 
 \end{itemize}
 
@@ -510,11 +535,9 @@ All schemes are implemented in MATLAB and evaluated over $T = 1000$
 rounds for each of 20 independent random seeds (seeds 1 through 20),
 with each seed producing a distinct random node deployment while the UAV
 trajectory is fixed. Reported values are mean and standard deviation
-across all 20 seeds. The simulation directly implements Baselines 2 and
-3 (TBC and FCPA), which are the two fully-parameterized literature
-baselines; Baseline 1 is represented conceptually in Section~IV as the
-detection-only lower bound. Table~\ref{tab:params} lists all simulation
-parameters, kept identical across all schemes to ensure fair comparison.
+across all 20 seeds. Both baselines (TBC and FCPA) are fully implemented in MATLAB.
+Table~\ref{tab:params} lists all simulation parameters, kept identical
+across all schemes to ensure fair comparison.
 
 \begin{table}[!t]
 \caption{Simulation Parameters}
@@ -557,7 +580,7 @@ Routing weights       & $\phi_1,\phi_2,\phi_3$      & $5{\times}10^{-4}$,\,1,\,$
 \subsection{Results}
 
 Table~\ref{tab:results} presents the comparative results for the
-proposed scheme against TBC (Baseline 2) and FCPA (Baseline 3).
+proposed scheme against TBC and FCPA.
 Two PDR windows are reported: all-rounds PDR captures full-lifecycle
 delivery performance, while first-node-death truncated (FND-trunc) PDR
 isolates protocol performance during healthy network operation,
@@ -594,22 +617,24 @@ Residual energy @ r300 (J)
 \end{table}
 
 Fig.~\ref{fig:results} shows per-round PDR, total residual energy,
-and alive node count for all three schemes across the full
-1000-round simulation (mean $\pm$ one standard deviation).
+and alive node count for all three schemes across the full 1000-round
+simulation (mean $\pm$ one standard deviation).
 
 \begin{figure}[!t]
-    \centerline{\includegraphics[width=\columnwidth]{figures/fig_combined.pdf}}
-    \caption{Per-round simulation results averaged over 20 seeds
-    (shaded bands show $\pm 1$ standard deviation).
-    (a)~Packet Delivery Ratio.
-    (b)~Total Residual Network Energy.
-    (c)~Number of Alive Nodes.}
+    \centerline{\includegraphics[width=\columnwidth]{figures/fig_pdr.png}}
+    \vspace{2pt}
+    \centerline{\includegraphics[width=\columnwidth]{figures/fig_energy.png}}
+    \vspace{2pt}
+    \centerline{\includegraphics[width=\columnwidth]{figures/fig_alive.png}}
+    \caption{Per-round results averaged over 20 seeds (shaded bands:
+    $\pm 1\,\sigma$). Top: Packet Delivery Ratio. Middle: Total Residual
+    Network Energy. Bottom: Alive Node Count.}
     \label{fig:results}
 \end{figure}
 
 \subsection{Discussion}
 
-\textbf{PDR advantage.}
+\subsubsection{PDR Advantage}
 The proposed scheme achieves 85.11\% all-round PDR, outperforming FCPA
 by 21.76 percentage points and TBC by 31.91 percentage points. The
 FND-truncated PDR gap between the proposed scheme and FCPA widens to
@@ -617,10 +642,9 @@ FND-truncated PDR gap between the proposed scheme and FCPA widens to
 advantage is not an artifact of differential mortality timing but a
 genuine per-round improvement sustained throughout the operational
 period. The proposed scheme maintains zero communication blackout rounds
-across all 20 seeds, while TBC and FCPA average 350 and 26.8 blackout
-rounds respectively.
+across all 20 evaluated seeds.
 
-\textbf{Temporal memory outperforms exact geometry.}
+\subsubsection{Temporal Memory Outperforms Exact Geometry}
 FCPA holds an information advantage over the proposed scheme: it knows
 the exact jammer position every round and uses it to gate cluster head
 candidacy. The proposed scheme has no jammer model, estimating channel
@@ -634,7 +658,7 @@ rounds. Second, adaptive burst size $M_{\text{eff}}$ avoids the
 cooperative relay overhead that FCPA imposes on relay nodes, retaining
 an additional 3.75 J of network energy by round 300 compared to FCPA.
 
-\textbf{Clustering is essential under the LEACH energy model.}
+\subsubsection{Clustering is Essential Under the LEACH Energy Model}
 TBC's flat topology validates the clustering premise directly. Without
 cluster head aggregation, every alive node routes up to $M$ packets
 individually toward the sink through multi-hop relay chains. Relay nodes
@@ -644,16 +668,17 @@ rounds. This demonstrates that threshold-based jamming detection alone
 is insufficient: energy-efficient topology management through clustering
 is a prerequisite for long-lived anti-jamming WSN operation.
 
-\textbf{Energy and lifetime.}
-Fig.~\ref{fig:results}(b) shows the proposed scheme retains 33.95 J of
-total network energy at round 300, 27\% more than TBC and 12\% more than
-FCPA. Fig.~\ref{fig:results}(c) shows all 100 nodes alive through
-approximately round 650 for the proposed scheme, compared to
-approximately rounds 450 and 480 for TBC and FCPA respectively. The
-adaptive burst size is the primary driver: jammed nodes that would
-otherwise drain sending futile packets instead conserve that energy for
-subsequent healthy rounds.
+\subsubsection{Energy and Lifetime}
+Fig.~\ref{fig:results} (middle) shows the proposed scheme retains
+33.95 J of total network energy at round 300, 27\% more than TBC and
+12\% more than FCPA. Fig.~\ref{fig:results} (bottom) shows all 100
+nodes alive through approximately round 650 for the proposed scheme,
+compared to approximately rounds 450 and 480 for TBC and FCPA
+respectively. The adaptive burst size is the primary driver: jammed
+nodes that would otherwise drain sending futile packets instead conserve
+that energy for subsequent healthy rounds.
 
+\FloatBarrier
 \section{Conclusion}
 \label{sec:conclusion}
 
