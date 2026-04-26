@@ -20,7 +20,7 @@
 %   hop_counts — vector of length N, number of hops for each CH to BS
 
 function [paths, hop_counts] = route_dijkstra(x, y, is_CH, JR, BS, ...
-    phi1, phi2, phi3, E_amp, L)
+    phi1, phi2, phi3, E_amp, L, r_tx)
 
     CH_idx = find(is_CH);
     N      = length(x);
@@ -51,6 +51,7 @@ function [paths, hop_counts] = route_dijkstra(x, y, is_CH, JR, BS, ...
             ni = graph_nodes(gi);
             nj = graph_nodes(gj);
             d2 = (x_aug(ni) - x_aug(nj))^2 + (y_aug(ni) - y_aug(nj))^2;
+            if sqrt(d2) > r_tx; continue; end   % no link beyond radio range
             cost(gi, gj) = phi1 + phi2 * E_amp * L * d2 + phi3 * JR_aug(nj);
         end
     end

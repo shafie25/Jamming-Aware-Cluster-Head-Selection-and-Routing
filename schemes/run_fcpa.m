@@ -106,6 +106,18 @@ function results = run_fcpa(x, y, BS, J_x, J_y, E0, T, M, ...
         %% --- Deferred energy delta (apply after full round) ---
         energy_delta = zeros(1, N);
 
+        %% --- CH election overhead (200-bit ADV + JOIN, same model as proposed) ---
+        for c = CH_idx
+            members_c = find(CH_assign == c & alive);
+            if isempty(members_c); continue; end
+            avg_d = mean(dist_nodes(c, members_c));
+            energy_delta(c) = energy_delta(c) - compute_energy('overhead', L, E_elec, E_amp, E_da, avg_d, 0);
+        end
+        for i = find(alive & ~is_CH)
+            if CH_assign(i) == 0; continue; end
+            energy_delta(i) = energy_delta(i) - compute_energy('overhead', L, E_elec, E_amp, E_da, dist_nodes(i, CH_assign(i)), 0);
+        end
+
         total_recv = 0;
         total_sent = 0;
         total_hops = 0;
@@ -123,6 +135,7 @@ function results = run_fcpa(x, y, BS, J_x, J_y, E0, T, M, ...
 
             direct_members = members_all(~ipn_jammed(members_all));
             jammed_members = members_all( ipn_jammed(members_all));
+            ch_recv        = 0;   % packets collected at this CH this round
 
             %% Direct member → CH transmissions
             for i = direct_members
@@ -133,7 +146,7 @@ function results = run_fcpa(x, y, BS, J_x, J_y, E0, T, M, ...
                 energy_delta(c) = energy_delta(c) - compute_energy('rx', L, E_elec, E_amp, E_da, 0, 0);
 
                 recv           = sum(rand(M, 1) <= p(i));
-                total_recv     = total_recv + recv;
+                ch_recv        = ch_recv + recv;
                 total_hops     = total_hops + 1;
                 n_routed       = n_routed + 1;
             end
@@ -188,9 +201,16 @@ function results = run_fcpa(x, y, BS, J_x, J_y, E0, T, M, ...
                     recv_at_ch = 0;
                 end
 
-                total_recv = total_recv + recv_at_ch;
+                ch_recv    = ch_recv + recv_at_ch;
                 total_hops = total_hops + 2;
                 n_routed   = n_routed + 1;
+            end
+
+            %% CH→BS: gate PDR on radio range, charge TX energy regardless
+            % CH always attempts the transmission (no range-awareness in FCPA),
+            % but packets only reach BS if the CH is within r_tx.
+            if ch_recv > 0 && dist_to_BS(c) <= r_tx
+                total_recv = total_recv + sum(rand(ch_recv, 1) <= p(c));
             end
 
             %% CH aggregation + direct TX to BS

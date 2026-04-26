@@ -11,16 +11,17 @@ function results = run_proposed(x, y, BS, J_x, J_y, dist_to_BS, ...
     alpha, beta, gamma_, delta, phi1, phi2, phi3, ...
     p_base, kappa, r_j, E_elec, E_amp, E_da, L, r_tx)
 
-    N     = length(x);
-    M_min = max(1, round(0.2 * M));   % floor burst size (20% of M)
+    N       = length(x);
+    N_sleep = 5;   % rounds to sleep after going silent (covers jammer arc tail)
 
     %% Initialize node state
-    energy   = E0 * ones(1, N);
-    PDR_ewma = ones(1, N);
-    JR       = zeros(1, N);
-    alive    = true(1, N);
-    is_CH    = false(1, N);
+    energy    = E0 * ones(1, N);
+    PDR_ewma  = ones(1, N);
+    JR        = zeros(1, N);
+    alive     = true(1, N);
+    is_CH     = false(1, N);
     CH_assign = zeros(1, N);
+    sleep_ctr = zeros(1, N);   % rounds remaining in sleep (0 = active)
     ch_died_last_round = false;
 
     %% Initialize metrics storage
@@ -60,12 +61,27 @@ function results = run_proposed(x, y, BS, J_x, J_y, dist_to_BS, ...
         %% --- Packet Success Probability ---
         p = compute_packet_success(x, y, alive, J_x(t), J_y(t), p_base, kappa, r_j);
 
-        %% --- Member Transmission + JR Update ---
+        %% --- JR Update (freeze sleeping nodes — no feedback while silent) ---
+        PDR_ewma_frozen = PDR_ewma;
+        JR_frozen       = JR;
         [PDR_ewma, JR] = update_jamming_risk(p, alive, is_CH, PDR_ewma, JR, M, lambda);
 
-        % Adaptive burst size: heavily jammed nodes transmit fewer packets
-        % to conserve energy. M_eff(i) = max(M_min, round(M*(1-JR(i))))
-        M_eff = max(M_min, round(M * (1 - JR)));   % vector, one per node
+        sleeping = alive & (sleep_ctr > 0);
+        PDR_ewma(sleeping) = PDR_ewma_frozen(sleeping);
+        JR(sleeping)       = JR_frozen(sleeping);
+
+        % Decrement counters; reset JR optimistically on wakeup
+        sleep_ctr(sleeping) = sleep_ctr(sleeping) - 1;
+        just_woke = sleeping & (sleep_ctr == 0);
+        JR(just_woke)       = 0;
+        PDR_ewma(just_woke) = 1;
+
+        % M_eff = 0 when JR high enough — silent nodes excluded from PDR/energy
+        M_eff = round(M * (1 - JR));
+
+        % Nodes that just went silent start their sleep countdown
+        newly_silent = alive & ~is_CH & (M_eff == 0) & (sleep_ctr == 0);
+        sleep_ctr(newly_silent) = N_sleep;
 
         % Deduct transmission energy for member nodes, scaled by M_eff/M
         for i = find(alive & ~is_CH)
@@ -79,7 +95,7 @@ function results = run_proposed(x, y, BS, J_x, J_y, dist_to_BS, ...
 
         %% --- CH Aggregation + Routing ---
         [paths, hop_counts] = route_dijkstra(x, y, is_CH, JR, BS, ...
-            phi1, phi2, phi3, E_amp, L);
+            phi1, phi2, phi3, E_amp, L, r_tx);
 
         total_delay = 0;
         n_CH_active = 0;
@@ -102,12 +118,12 @@ function results = run_proposed(x, y, BS, J_x, J_y, dist_to_BS, ...
             for mi = 1:n_members
                 recv_count = recv_count + sum(rand(m_eff_c(mi), 1) <= p_members(mi));
             end
-            total_recv = total_recv + recv_count;
             total_sent = total_sent + sum(m_eff_c);
 
-            % Route along optimal path, deduct energy per hop
+            % Route along optimal path: deduct energy per hop and apply channel loss
             path = paths{c};
             if isempty(path); continue; end
+            surviving = recv_count;
             for h = 1:length(path) - 1
                 ni = path(h);
                 nj = path(h+1);
@@ -115,12 +131,19 @@ function results = run_proposed(x, y, BS, J_x, J_y, dist_to_BS, ...
                     % Last hop to BS — BS has infinite energy
                     d_hop = sqrt((x(ni) - BS(1))^2 + (y(ni) - BS(2))^2);
                     energy(ni) = energy(ni) - compute_energy('tx', L, E_elec, E_amp, E_da, d_hop, 0);
+                    if surviving > 0
+                        surviving = sum(rand(surviving, 1) <= p(ni));
+                    end
                 else
                     d_hop = sqrt((x(ni) - x(nj))^2 + (y(ni) - y(nj))^2);
                     energy(ni) = energy(ni) - compute_energy('tx', L, E_elec, E_amp, E_da, d_hop, 0);
                     energy(nj) = energy(nj) - compute_energy('rx', L, E_elec, E_amp, E_da, 0, 0);
+                    if surviving > 0
+                        surviving = sum(rand(surviving, 1) <= p(ni));
+                    end
                 end
             end
+            total_recv = total_recv + surviving;
 
             total_delay = total_delay + hop_counts(c);
             n_CH_active = n_CH_active + 1;

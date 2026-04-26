@@ -67,7 +67,7 @@ for t = 1:T
     end
 
     %% CH Aggregation + Routing
-    [paths, hop_counts] = route_dijkstra(x, y, is_CH, JR, BS, phi1, phi2, phi3, E_amp, L);
+    [paths, hop_counts] = route_dijkstra(x, y, is_CH, JR, BS, phi1, phi2, phi3, E_amp, L, r_tx);
 
     total_recv = 0; total_sent = 0; total_delay = 0; n_CH_active = 0;
     CH_idx = find(is_CH & alive);

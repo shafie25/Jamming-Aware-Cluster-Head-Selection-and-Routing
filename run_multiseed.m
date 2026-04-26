@@ -96,7 +96,7 @@ for k = 1:n_schemes
 end
 fprintf('\n');
 
-% --- PDR Window 2: FND-truncated (rounds 1 to first node death) ---
+% --- PDR Window 2: FND-truncated (rounds 1 to first node death per seed) ---
 fprintf('%-22s |', 'PDR FND-trunc (%)');
 for k = 1:n_schemes
     fd = scheme_fields{k};

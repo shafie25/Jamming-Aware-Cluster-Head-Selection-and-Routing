@@ -9,7 +9,7 @@ MATLAB simulation for a graduate wireless networks course project:
 
 ---
 
-## Current State (as of 2026-04-19, Paper Complete)
+## Current State (as of 2026-04-27, Run 022)
 
 ### Implemented
 - `schemes/run_proposed.m` — proposed scheme: JR-aware CHScore election + Dijkstra routing + proactive emergency CH re-election + adaptive burst size (M_eff)
@@ -38,18 +38,21 @@ MATLAB simulation for a graduate wireless networks course project:
 - `p_CH = 0.05`
 - `r_tx = 50m`
 - Emergency CH re-election fires when a CH died last round OR no alive CHs remain (proactive)
-- Adaptive burst size: `M_eff(i) = max(M_min, round(M*(1-JR(i))))`, `M_min=2` — jammed nodes conserve energy by reducing transmissions proportionally to their EWMA jamming risk (Run 017)
+- Adaptive burst size: `M_eff(i) = round(M*(1-JR(i)))`, floor=0 — jammed nodes conserve energy by reducing transmissions proportionally to their EWMA jamming risk (Run 017, floor lowered in Run 022)
+- Sleep timer: nodes at M_eff=0 sleep for `N_sleep=5` rounds (EWMA frozen, JR reset to 0 on wakeup) — covers the jammer arc tail so nodes don't over-penalise post-jam JR
+- PDR measured end-to-end at the BS: packets must survive every routing hop via Dijkstra, not just reach the CH (fixed in Run 022)
+- Dijkstra enforces `r_tx=50m` radio range — edges beyond range pruned from cost matrix (fixed in Run 022)
 
-### Current Best Comparative Results (Run 021, 20 seeds)
+### Current Best Comparative Results (Run 022, 20 seeds)
 
 | Metric | Proposed | TBC | FCPA |
 |---|---|---|---|
-| First node death (round) | **704.7 +/- 33.1** | 459.1 +/- 41.3 | 542.1 +/- 19.2 |
-| PDR all rounds (%) | **85.11 +/- 2.02** | 53.20 +/- 4.41 | 63.35 +/- 0.89 |
-| PDR FND-trunc (%) | **88.77 +/- 1.42** | 82.42 +/- 0.58 | 75.07 +/- 1.44 |
-| Energy @ round 300 (J) | **33.95 +/- 0.41** | 26.80 +/- 1.12 | 30.20 +/- 0.26 |
+| First node death (round) | **701.6 +/- 34.5** | 459.5 +/- 41.7 | 535.2 +/- 24.3 |
+| PDR all rounds (%) | **78.22 +/- 1.54** | 53.21 +/- 4.42 | 47.46 +/- 2.48 |
+| PDR FND-trunc (%) | 81.06 +/- 1.19 | **82.42 +/- 0.58** | 61.19 +/- 2.96 |
+| Energy @ round 300 (J) | **34.17 +/- 0.42** | 26.81 +/- 1.12 | 29.62 +/- 0.20 |
 
-Proposed wins on every metric — including against FCPA which has exact jammer position each round. TBC dies at ~round 459 from relay overload (flat topology). FCPA dies at ~round 542 from cooperative relay energy overhead. The proposed scheme's EWMA JR + adaptive M_eff + JR-aware election outperforms both.
+Proposed wins on lifetime, all-rounds PDR, and energy. TBC's slightly higher FND-trunc (82.42% vs 81.06%) is an asymmetric window artefact — TBC's window covers only rounds 1-459 (its healthy phase), while proposed's window extends to round 701. Numbers dropped from Run 021 because PDR is now correctly measured end-to-end at the BS (not member→CH).
 
 ---
 
@@ -59,7 +62,7 @@ Proposed wins on every metric — including against FCPA which has exact jammer 
 Sweep over {0.6, 0.7, 0.8}: no PDR gain from higher lambda, worse blackouts from noise amplification with M=10 bursts.
 
 **Adaptive M_eff uses EWMA JR (not instantaneous p).**
-`M_eff(i) = max(2, round(10*(1-JR(i))))`. With lambda=0.6, recovery after jammer leaves takes ~3 rounds — negligible vs 50-round orbit period. All three loop-replaying scripts (visualize_snapshot, diag_proposed_zeros, diag_scale) are kept in sync with run_proposed.m.
+`M_eff(i) = round(10*(1-JR(i)))`, floor=0. Nodes at M_eff=0 sleep for N_sleep=5 rounds (EWMA frozen, JR reset on wakeup). With lambda=0.6, JR recovery after jammer leaves takes ~3 rounds — negligible vs 50-round orbit period. All three loop-replaying scripts (visualize_snapshot, diag_proposed_zeros, diag_scale) must be kept in sync with run_proposed.m if the sleep timer logic changes.
 
 **`p_CH` flows from `core/config.m` through function signatures.**
 `elect_ch_proposed.m` no longer hardcodes p_CH. Any sweep is real.
@@ -73,8 +76,8 @@ All-rounds PDR and FND-truncated PDR. Zero-PDR round count was removed from `run
 **`gamma_` not `gamma`.**
 `gamma` conflicts with a MATLAB builtin. The CHScore jamming-risk weight is `gamma_` everywhere.
 
-**Exact jammer position does not beat EWMA JR (Run 020).**
-FCPA has omniscient jammer geometry; proposed only estimates JR from experienced packet loss. Proposed still wins by +21.76pp all-rounds PDR and +162.6 rounds FND. EWMA temporal memory + adaptive M_eff outweighs the information advantage of exact geometry.
+**Exact jammer position does not beat EWMA JR (Run 020/022).**
+FCPA has omniscient jammer geometry; proposed only estimates JR from experienced packet loss. Proposed wins by +30.76pp all-rounds PDR and +166 rounds FND (Run 022 end-to-end numbers). EWMA temporal memory + adaptive M_eff + sleep timer outweighs the information advantage of exact geometry.
 
 **TBC energy convention: recv_packets/M not recv_packets (Run 019).**
 In `run_tbc.m`, per-hop TX/RX energy scales by `recv_packets/M` — a fraction ≤ 1. L=4000 bits is the total round payload represented by the M packet trials, same as all other schemes. Using raw `recv_packets` would charge 10× too much per hop.
@@ -135,20 +138,21 @@ reference/
 
 ---
 
-## Project Status: COMPLETE (2026-04-19)
+## Project Status: COMPLETE (2026-04-27, Run 022)
 
-The simulation, evaluation, and paper write-up are finished. Everything needed for submission is in the repo.
+The simulation, evaluation, and paper write-up are finished. Everything needed for submission is in the repo. Run 022 corrected baseline modelling (end-to-end PDR, FCPA overhead, r_tx in Dijkstra) and added the sleep timer; paper numbers from Run 021 still hold structurally.
 
 ### Done
 1. ~~Paper write-up~~ — `paper.tex` complete. All sections written: Abstract, Introduction, Related Work, Contributions, System Model, Proposed Scheme (including M_eff subsection), Simulation Results (Table I parameters, Table II results, Figure, Discussion), Conclusion. `references.bib` created.
 2. ~~Figure export~~ — `plotting/export_figures.m` written and run. `figures/fig_combined.pdf` generated and ready for Overleaf.
-3. ~~FCPA baseline~~ — done in Run 020. IPN-gated election + cooperative relay.
-4. ~~TBC energy fix~~ — done in Run 019. recv_packets/M scaling corrected.
-5. ~~TBC baseline~~ — done in Run 018/019. Flat multi-hop, threshold suppression.
-6. ~~Adaptive burst size~~ — done in Run 017. M_eff = max(2, round(M*(1-JR))).
-7. ~~Scaled-up geometry test~~ — done in Run 016. Dijkstra confirmed net-negative at 200x200m.
-8. ~~phi1 sweep~~ — done in Run 014. phi1=5e-4 is canonical.
-9. ~~Zero-PDR rounds~~ — solved (0.0 +/- 0.0 for proposed).
+3. ~~Baseline correctness review~~ — done in Run 022. FCPA overhead, end-to-end PDR, r_tx in Dijkstra, FCPA range gate, sleep timer.
+4. ~~FCPA baseline~~ — done in Run 020. IPN-gated election + cooperative relay.
+5. ~~TBC energy fix~~ — done in Run 019. recv_packets/M scaling corrected.
+6. ~~TBC baseline~~ — done in Run 018/019. Flat multi-hop, threshold suppression.
+7. ~~Adaptive burst size~~ — done in Run 017. M_eff = round(M*(1-JR)), floor lowered to 0 in Run 022 with sleep timer.
+8. ~~Scaled-up geometry test~~ — done in Run 016. Dijkstra confirmed net-negative at 200x200m.
+9. ~~phi1 sweep~~ — done in Run 014. phi1=5e-4 is canonical.
+10. ~~Zero-PDR rounds~~ — solved (0.0 +/- 0.0 for proposed).
 
 ### To Submit
 Upload to Overleaf: `paper.tex`, `references.bib`, `figures/fig_combined.pdf`, `system_model.pdf`

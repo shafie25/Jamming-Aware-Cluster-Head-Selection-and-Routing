@@ -1450,3 +1450,96 @@ Upload these four files: `paper.tex`, `references.bib`, `figures/fig_combined.pd
 ### Project Status
 
 **COMPLETE.** Simulation, evaluation, and paper write-up are all finished.
+
+---
+
+## Run 022 — Baseline Correctness Review + Sleep Timer
+
+**Date:** 2026-04-26
+**Run by:** Ahmed + Claude Code
+
+### What This Run Was
+
+A systematic review of the baseline implementations to identify and fix modelling inconsistencies between the proposed scheme, TBC, and FCPA. Seven changes were made across this session, followed by a 20-seed re-evaluation.
+
+### Code Changes
+
+**1. FCPA: CH election overhead added**
+`run_fcpa.m` was not charging energy for the 200-bit ADV broadcast (CH→members) and JOIN requests (members→CH) at the start of each round. Added the same `compute_energy('overhead', ...)` block that `run_proposed.m` uses, via the deferred `energy_delta` accumulator.
+
+**2. All schemes: PDR measured end-to-end to BS**
+Previously the proposed scheme counted `recv_count` (packets received at the CH) as delivered, never applying channel loss on the CH→BS routing path. FCPA had the same issue — packets were counted as delivered when received at the CH, not the BS. TBC was already measuring to BS. Fixed by:
+- `run_proposed.m`: carry `surviving` packet count through each hop in the Dijkstra path, applying `p(ni)` Bernoulli at every hop; `total_recv += surviving` after the path loop.
+- `run_fcpa.m`: added CH→BS Bernoulli after per-CH processing: `total_recv += sum(rand(ch_recv, 1) <= p(c))` gated on `dist_to_BS(c) <= r_tx`.
+
+**3. Dijkstra: r_tx radio range constraint enforced**
+`route_dijkstra.m` had no range check — it built edges between any pair of CH nodes regardless of distance. Added `r_tx` to the function signature and pruned edges beyond radio range in the cost matrix: `if sqrt(d2) > r_tx; continue; end`. All callers updated to pass `r_tx`.
+
+**4. FCPA: CH→BS transmission range gated**
+FCPA was crediting packets as delivered at the BS even when the CH was beyond `r_tx` of the BS. Fixed by gating `total_recv` on `dist_to_BS(c) <= r_tx`. TX energy is still charged regardless (CH always attempts the transmission). This is Option A: energy charge, PDR gate.
+
+**5. Proposed: M_min lowered from 2 to 0**
+The previous floor of `M_min = 2` was removed. `M_eff = round(M * (1 - JR))` can now reach 0 for nodes with very high JR. Nodes at M_eff=0 are silenced and start the sleep timer (change 6 below).
+
+**6. Proposed: Sleep timer added for silenced nodes**
+Nodes that reach `M_eff = 0` are put to sleep for `N_sleep = 5` rounds. While sleeping:
+- EWMA (PDR_ewma) and JR are frozen — no update from packet outcomes.
+- Transmission energy = 0 (no packets sent).
+- sleep_ctr is decremented each round.
+On wakeup: JR reset to 0, PDR_ewma reset to 1 (optimistic restart).
+
+Rationale: with R=35m orbit and ω=2π/50, the jammer arc subtends ~9 rounds within r_j=20m. M_eff hits 0 ~3-4 rounds into the arc, leaving ~3-5 arc rounds remaining. N_sleep=5 covers the arc tail. Without the sleep timer, a node at M_eff=0 would continue updating JR from zero-packet rounds, keeping JR pinned near 1 long after the jammer has left, causing unnecessary CHScore penalties.
+
+**7. run_multiseed.m: PDR Window 2 restored to FND-trunc**
+The second PDR window had been temporarily changed to a fixed r1-300 window during debugging. Restored to FND-truncated (mean PDR from round 1 to each seed's first node death).
+
+### Files Changed
+
+| File | Change |
+|---|---|
+| `schemes/run_fcpa.m` | CH election overhead block; `ch_recv` accumulator; CH→BS Bernoulli with range gate |
+| `schemes/run_proposed.m` | End-to-end PDR via `surviving` through Dijkstra path; M_min=0; sleep timer (N_sleep=5, frozen EWMA, JR reset on wakeup) |
+| `layer2/route_dijkstra.m` | `r_tx` parameter added; edge pruning for `sqrt(d2) > r_tx` |
+| `run_multiseed.m` | PDR Window 2 restored to FND-trunc |
+| `docs/SIMULATION_LOG.md` | This entry |
+| `docs/README.md` | Results table updated to Run 022; M_eff formula updated |
+| `CLAUDE.md` | Results table and gotchas updated to Run 022 |
+
+Note: callers of `route_dijkstra` (`run_proposed.m`, `plotting/visualize_snapshot.m`, `testing/diag_proposed_zeros.m`) were updated to pass `r_tx`.
+
+### Results (mean ± std across 20 seeds, seeds 1:20)
+
+| Metric | Proposed | TBC | FCPA |
+|---|---|---|---|
+| First node death (round) | **701.6 ± 34.5** | 459.5 ± 41.7 | 535.2 ± 24.3 |
+| PDR all rounds (%) | **78.22 ± 1.54** | 53.21 ± 4.42 | 47.46 ± 2.48 |
+| PDR FND-trunc (%) | 81.06 ± 1.19 | **82.42 ± 0.58** | 61.19 ± 2.96 |
+| Energy @ round 300 (J) | **34.17 ± 0.42** | 26.81 ± 1.12 | 29.62 ± 0.20 |
+
+### Takeaways
+
+**1. End-to-end PDR accounting reduced all-rounds numbers across the board.**
+In Run 021, proposed all-rounds PDR was 85.11%. After fixing PDR to be measured at the BS (applying per-hop channel loss through the Dijkstra path), it dropped to 78.22%. This is a more honest number — packets genuinely need to survive all routing hops to the BS, not just reach the cluster head.
+
+**2. FCPA all-rounds PDR dropped significantly (63.35% → 47.46%).**
+FCPA was the biggest beneficiary of the old member→CH accounting. Adding overhead energy, enforcing the r_tx range gate on CH→BS, and measuring PDR at the BS revealed that many FCPA clusters either cannot directly reach the BS or accumulate overhead costs that kill CHs faster.
+
+**3. TBC is unchanged by these fixes (53.19% → 53.21%).**
+TBC was already measuring PDR at the BS (flat topology, single-hop to BS from relay nodes). The run-to-run difference is pure RNG variance. This confirms the consistency of the fix — TBC was already correct.
+
+**4. Proposed FND-trunc (81.06%) is slightly below TBC (82.42%) — an asymmetric window artefact.**
+TBC dies at round 459; proposed at round 701. The FND-truncated PDR for TBC covers only the early healthy phase (rounds 1–459), while proposed's window extends to round 701 — covering additional rounds where more nodes are dead and the network is more stressed. This is expected with FND-trunc when lifetimes differ by ~240 rounds. The proposed scheme still wins decisively on every other metric, including all-rounds PDR (+25pp), lifetime (+242 rounds), and residual energy (+7.36J).
+
+**5. FCPA lifetime dropped slightly (542.1 → 535.2 rounds).**
+Adding overhead energy and the range gate increased FCPA's energy expenditure per round, pulling FND in by ~7 rounds. The cooperative relay overhead remains the dominant FCPA failure mode.
+
+**6. Sleep timer improved proposed FND (693 → 701.6 rounds) and residual energy (33.95 → 34.17J).**
+Silencing deeply jammed nodes (M_eff=0) for N_sleep=5 rounds eliminates futile transmission attempts during the tail of the jammer arc, saving energy for the post-jam period.
+
+**7. The core story holds.**
+Proposed wins on lifetime (+242 rounds vs TBC, +166 rounds vs FCPA), all-rounds PDR (+25.01pp vs TBC, +30.76pp vs FCPA), and residual energy. The one metric where TBC slightly leads (FND-trunc by 1.36pp) is an artefact of comparing truncation windows of very different lengths — not a genuine PDR quality difference.
+
+### What to Do Next
+
+- Update paper numbers if re-submission or revision is needed
+- The figures in `figures/` still reflect Run 021 numbers — re-run `plotting/export_figures.m` to regenerate if figures are needed

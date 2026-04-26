@@ -88,7 +88,7 @@ for t = 1:snapshot_round
     end
 
     %% Inter-cluster routing
-    [snap_paths, ~] = route_dijkstra(x, y, is_CH, JR, BS, phi1, phi2, phi3, E_amp, L);
+    [snap_paths, ~] = route_dijkstra(x, y, is_CH, JR, BS, phi1, phi2, phi3, E_amp, L, r_tx);
 
     %% CH aggregation + forwarding energy
     CH_idx_r = find(is_CH & alive);

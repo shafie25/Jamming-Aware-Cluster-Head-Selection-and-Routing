@@ -82,7 +82,7 @@ Output: `figures/fig_combined.pdf` (3-panel PDR/Energy/Alive), plus individual `
 Each alive non-CH node uses packet trials per round for PDR estimation. The trial count adapts to jamming risk:
 
 ```
-M_eff(i) = max(M_min, round(M * (1 - JR(i))))   % M=10, M_min=2
+M_eff(i) = round(M * (1 - JR(i)))   % M=10, floor=0
 ```
 
 Instantaneous PDR is EWMA-smoothed to obtain JR:
@@ -92,7 +92,7 @@ PDR_ewma = lambda * PDR_inst + (1 - lambda) * PDR_ewma
 JR = 1 - PDR_ewma
 ```
 
-Heavily jammed nodes (high JR) reduce transmissions to conserve energy, extending network lifetime without changing the PDR ratio since they deliver near-zero packets regardless. Energy deduction scales proportionally: `scale = M_eff/M`.
+Heavily jammed nodes (high JR) reduce transmissions to conserve energy, extending network lifetime without changing the PDR ratio since they deliver near-zero packets regardless. Energy deduction scales proportionally: `scale = M_eff/M`. Nodes that reach M_eff=0 are silenced and sleep for `N_sleep=5` rounds (EWMA frozen during sleep; JR reset to 0 on wakeup).
 
 ### 2. CH Election (core contribution)
 
@@ -150,20 +150,22 @@ With `kappa=10`, a node at the jammer center has `p ≈ 0.00004` — effectively
 
 ---
 
-## Current Best Results (Run 021, 20 seeds)
+## Current Best Results (Run 022, 20 seeds)
 
 | Metric | Proposed | TBC | FCPA |
 |---|---|---|---|
-| First node death (round) | **704.7 ± 33.1** | 459.1 ± 41.3 | 542.1 ± 19.2 |
-| PDR all rounds (%) | **85.11 ± 2.02** | 53.20 ± 4.41 | 63.35 ± 0.89 |
-| PDR FND-trunc (%) | **88.77 ± 1.42** | 82.42 ± 0.58 | 75.07 ± 1.44 |
-| Energy @ round 300 (J) | **33.95 ± 0.41** | 26.80 ± 1.12 | 30.20 ± 0.26 |
+| First node death (round) | **701.6 ± 34.5** | 459.5 ± 41.7 | 535.2 ± 24.3 |
+| PDR all rounds (%) | **78.22 ± 1.54** | 53.21 ± 4.42 | 47.46 ± 2.48 |
+| PDR FND-trunc (%) | 81.06 ± 1.19 | **82.42 ± 0.58** | 61.19 ± 2.96 |
+| Energy @ round 300 (J) | **34.17 ± 0.42** | 26.81 ± 1.12 | 29.62 ± 0.20 |
 
-Proposed wins on every metric. Key findings:
+Proposed wins on lifetime (+242 rounds vs TBC, +166 rounds vs FCPA), all-rounds PDR (+25pp vs TBC, +30pp vs FCPA), and residual energy. TBC's slightly higher FND-trunc PDR is an asymmetric window artefact — its truncation window covers only rounds 1–459 (the healthy early phase), while proposed's window extends to round 701.
+
+Key findings:
 
 - **TBC** (flat multi-hop, no clustering) dies at ~round 459 from relay overload — nodes near the BS exhaust their energy forwarding packets for the entire field. Validates the clustering premise.
-- **FCPA** (clustered, exact jammer geometry) dies at ~round 542 from cooperative relay overhead — relay nodes accumulate forwarding costs from all jammed members they serve. Despite having perfect jammer position knowledge, FCPA cannot match the proposed scheme's EWMA-based temporal memory and adaptive burst size.
-- **Proposed** achieves 0 communication blackout rounds; both baselines have significant blackout periods.
+- **FCPA** (clustered, exact jammer geometry) dies at ~round 535 from cooperative relay overhead. Despite having perfect jammer position knowledge each round, FCPA cannot match the proposed scheme's EWMA temporal memory and adaptive burst size.
+- PDR is measured **end-to-end at the BS** — packets must survive all routing hops, not just reach the cluster head.
 
 ---
 
