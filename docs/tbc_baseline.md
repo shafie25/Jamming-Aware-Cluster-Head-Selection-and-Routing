@@ -55,7 +55,7 @@ instantaneous PDR recovers above 0.5 in a future round.
 
 ### Topology
 Flat multi-hop — no clustering. Every alive, non-jammed node originates
-M packets toward BS each round via the Dijkstra-computed next-hop chain.
+M packet trials toward BS each round via the Dijkstra-computed next-hop chain.
 
 ### Per-Round Algorithm
 
@@ -115,13 +115,13 @@ At each hop from `cur` to `next_hop(cur)`:
 
 When `cur == BS_idx`, add `recv_packets` to `total_recv`.
 
-**Energy convention:** `recv_packets/M` is the key scaling factor. When all
-M packets survive (`recv_packets == M`), the fraction is 1 and the node pays
+**Energy convention:** `recv_packets/M` is the key scaling factor. When
+all M packet trials survive (`recv_packets == M`), the fraction is 1 and the node pays
 exactly `L·E_elec + L·E_amp·d²` — identical to what `compute_energy('tx')`
 charges in `run_proposed` and `run_leach`, where L = 4000 bits is the total
-round payload (all M packets combined), not a per-packet size. As packets
+round payload represented by M packet trials, not a per-trial size. As trials
 are lost along the path, the relay pays proportionally less because it is
-forwarding less data.
+forwarding less represented data.
 
 All energy deltas are accumulated in a temporary array and applied at once
 after all nodes are processed. This prevents a node dying mid-round from

@@ -26,7 +26,7 @@ T        = 1000;              % total simulation rounds
 K_elec   = 5;                 % CH re-election interval (rounds) — frequent enough
                               % to respond to UAV movement, EWMA has time to stabilize
                               % Note: K_elec used to avoid confusion with K (CH count)
-M        = 10;                % burst size (packets/round) — gives PDR resolution of
+M        = 10;                % packet trials per round for PDR estimation — gives PDR resolution of
                               % 0.1 steps {0, 0.1, ..., 1.0}, enough for smooth EWMA
 p_CH     = 0.05;              % target fraction of nodes to elect as CHs (LEACH standard)
                               % K = round(p_CH * N_alive) computed dynamically each election
@@ -38,7 +38,7 @@ r_exc    = 25;                % CH exclusion radius (m) — minimum spatial sepa
                               % r = sqrt(2000/pi) ~ 25m. Guarantees spatial spread.
 r_tx     = 50;                % hard transmission range limit (m) — member nodes beyond
                               % this distance from every CH are stranded (cannot join any
-                              % cluster). Their M packets count in PDR denominator as lost.
+                              % cluster). Their M packet trials count in PDR denominator as lost.
                               % ~2x average CH-to-member distance in healthy network.
 
 %% EWMA Smoothing
@@ -69,4 +69,4 @@ phi3 = 5e-4;                  % JR penalty scale (J) — matches avg hop cost so
 E_elec   = 50e-9;             % Tx/Rx circuit energy (J/bit)
 E_amp    = 100e-12;           % amplifier energy (J/bit/m^2) — scales with d^2
 E_da     = 5e-9;              % data aggregation energy at CH (J/bit)
-L        = 4000;              % packet length (bits) — 500 bytes, standard WSN size
+L        = 4000;              % per-node payload bits per round represented by the M packet trials

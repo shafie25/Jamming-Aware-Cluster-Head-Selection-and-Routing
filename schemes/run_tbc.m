@@ -4,7 +4,7 @@
 %   Cure Mechanism for Wireless Sensor Networks," IEEE MRIE 2025.
 %
 % Topology: flat multi-hop — no clustering, no CH election.
-% Every alive node routes M packets to BS via shortest-distance path
+% Every alive node routes M packet trials to BS via shortest-distance path
 % through alive, non-jammed neighbors within r_tx.
 %
 % Jamming detection (Eq. 3 adapted): instantaneous PDR < T_threshold →
@@ -131,10 +131,10 @@ function results = run_tbc(x, y, BS, J_x, J_y, ...
         end
 
         %% --- Packet Forwarding ---
-        % Each alive, non-jammed node with a path to BS originates M packets.
+        % Each alive, non-jammed node with a path to BS originates M packet trials.
         % Packets traverse hops; each hop costs TX at sender + RX at receiver.
         % Relay nodes accumulate forwarding energy from all traffic routed through.
-        % Jammed nodes: M packets count as lost (no TX, no energy cost).
+        % Jammed nodes: M packet trials count as lost (no TX, no energy cost).
 
         % Count how many packets each node needs to forward (originating + relay).
         % We process per-source to correctly attribute energy to relay nodes.
@@ -149,7 +149,7 @@ function results = run_tbc(x, y, BS, J_x, J_y, ...
         energy_delta = zeros(1, N);
 
         for i = find(alive)
-            total_sent = total_sent + M;   % all alive nodes had M packets to send
+            total_sent = total_sent + M;   % all alive nodes had M packet trials to send
 
             if jammed(i)
                 % Jammed: suppress transmission, packets lost (Eq. 6)
@@ -163,7 +163,7 @@ function results = run_tbc(x, y, BS, J_x, J_y, ...
 
             % Trace the path from i to BS, accumulate energy costs
             % and count received packets (apply channel loss at each hop).
-            recv_packets = M;   % start with M packets, lose some at each hop
+            recv_packets = M;   % start with M packet trials, lose some at each hop
             cur = i;
             hops = 0;
 
@@ -179,10 +179,10 @@ function results = run_tbc(x, y, BS, J_x, J_y, ...
                 end
 
                 % TX energy at current node.
-                % Scale by recv_packets/M so that a full burst (recv_packets==M)
+                % Scale by recv_packets/M so that a full trial set (recv_packets==M)
                 % costs exactly L*E_elec + L*E_amp*d^2 — the same convention used
                 % by compute_energy('tx') in run_proposed/run_leach, where L is the
-                % total round payload (M packets combined), not per-packet size.
+                % total round payload represented by M trials, not per-trial size.
                 energy_delta(cur) = energy_delta(cur) - (recv_packets/M) * (L*E_elec + L*E_amp*d_hop^2);
 
                 % RX energy at next hop (BS has infinite energy)

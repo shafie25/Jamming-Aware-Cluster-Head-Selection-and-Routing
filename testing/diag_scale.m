@@ -8,7 +8,7 @@
 clc; clear;
 addpath(genpath('.'));
 
-%% Scaled parameters (must match run_scale_test.m)
+%% Scaled parameters (legacy 200x200m diagnostic setup)
 rng(1);
 config;
 N            = 200;

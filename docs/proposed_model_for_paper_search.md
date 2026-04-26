@@ -31,7 +31,7 @@ At the jammer center, `p` is effectively zero (`p_base * e^{-10} ≈ 0.00004`).
 
 ## Layer 1: Jamming Risk Estimation + Adaptive Burst Size
 
-Every alive non-CH node sends a burst of `M_eff` packets per round, where:
+Every alive non-CH node uses `M_eff` packet trials per round for PDR estimation, where:
 
 ```text
 M_eff(i) = max(M_min, round(M * (1 - JR_i)))     M=10, M_min=2
@@ -83,7 +83,7 @@ Two triggers (proactive + reactive):
 
 Both cases reuse the standard CHScore election and pay normal control overhead.
 
-Alive non-CH nodes are assigned to the nearest CH within `r_tx`; otherwise they are stranded and their M_eff packets count as lost in the PDR denominator.
+Alive non-CH nodes are assigned to the nearest CH within `r_tx`; otherwise they are stranded and their M_eff packet trials count as lost in the PDR denominator.
 
 ---
 
@@ -102,7 +102,7 @@ with:
 - `phi2 = 1`
 - `phi3 = 5e-4`
 
-> **Known result (Runs 015–016):** In this compact geometry (BS at center, r_tx=50m), Dijkstra degenerates to direct CH-to-BS for ~78% of rounds. `run_proposed_direct.m` (same election, no routing) matches or beats Dijkstra on every metric. The full PDR advantage over LEACH comes from the election layer. Even at 200x200m with r_tx=75m, Dijkstra is net-negative (-6.56pp PDR) vs direct due to relay overload at scale. Dijkstra is retained as a framework component.
+> **Known result (Runs 015–016):** In this compact geometry (BS at center, r_tx=50m), Dijkstra often selects short CH-to-BS paths. The direct-routing experiment used to test this has been removed from the active codebase; Dijkstra is retained as the proposed framework's inter-cluster routing component.
 
 ---
 
@@ -114,14 +114,14 @@ LEACH-style radio model, scaled by M_eff for member transmissions:
 E_tx = (M_eff/M) * (L*E_elec + L*E_amp*d^2)    % member to CH
 E_rx = (M_eff/M) * L*E_elec                      % CH receiving from member
 E_agg = n_members*L*E_da                          % CH aggregation
-E_tx_route = L*E_elec + L*E_amp*d^2              % CH to next hop (full packet)
+E_tx_route = L*E_elec + L*E_amp*d^2              % CH to next hop (full round payload)
 ```
 
 with:
 - `E_elec = 50 nJ/bit`
 - `E_amp = 100 pJ/bit/m^2`
 - `E_da = 5 nJ/bit`
-- `L = 4000 bits`
+- `L = 4000 bits` per-node payload per round, represented by the `M` packet trials
 - `M = 10`, `M_min = 2`
 
 ---
@@ -144,7 +144,7 @@ The three-window PDR reporting is deliberate: all-round PDR, FND-truncated PDR, 
 | Scheme | Description |
 |---|---|
 | Proposed | JR-aware CH election + JR-aware inter-cluster routing + proactive/reactive emergency CH recovery + adaptive burst size M_eff |
-| Standard LEACH | Probabilistic CH election, direct CH-to-BS, no jamming awareness, fixed M=10 burst |
+| Standard LEACH | Probabilistic CH election, direct CH-to-BS, no jamming awareness, fixed M=10 packet-trial count |
 
 ---
 
@@ -169,7 +169,6 @@ Proposed wins on every metric. +22.6pp all-rounds PDR, +15.9pp FND-truncated PDR
 | EWMA-Detect | LEACH + JR tracking but no action taken | detection alone (no benefit expected — validates that action is needed) |
 | Threshold-JR | LEACH + suppress member transmission when JR > 0.5 (fixed M, not adaptive) | threshold suppression vs proportional M_eff |
 | Reactive-CH | LEACH + re-elect CH when its JR > 0.5 | reactive CH replacement vs proactive JR-aware election |
-| Proposed-Direct | Proposed election + direct CH-to-BS (no Dijkstra) | election layer in isolation (already tested in Run 015) |
 
 All new baselines must use:
 - `r_tx = 50m` stranded-node accounting

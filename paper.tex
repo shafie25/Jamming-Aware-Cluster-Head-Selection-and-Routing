@@ -76,7 +76,7 @@ delivery within a moving exclusion zone. Unlike a static jammer, a
 mobile UAV creates a spatially and temporally correlated interference
 pattern. Standard LEACH-style protocols elect cluster heads
 probabilistically, make routing decisions without regard to channel
-quality, and transmit at fixed burst size regardless of local jamming
+quality, and transmit at a fixed packet-trial count regardless of local jamming
 conditions, leading to wasted energy, premature node death, and
 extended communication blackouts.
 
@@ -200,7 +200,7 @@ $\mathcal{S} = \{s_1, s_2, \ldots, s_N\}$ deployed randomly over a
 square field of side length $L_p$ meters, with a fixed base station
 (sink) $BS$ located at the field center. Each node has a maximum
 transmission range of $r_{tx} = 50$ m; nodes beyond this radius from
-every cluster head are stranded and their packets counted as lost. The
+every cluster head are stranded and their packet trials counted as lost. The
 network operates in discrete rounds indexed by $t = 1, 2, \ldots, T$.
 
 A UAV-based jammer moves above the network along a circular orbit,
@@ -221,9 +221,9 @@ at round $t$ is:
     d_{i,J}(t) = \sqrt{(x_i - x_j(t))^2 + (y_i - y_j(t))^2}
 \end{equation}
 
-Each round, every node $s_i$ transmits a burst of $M$ packets to its
-assigned CH. The success probability of each individual packet
-transmission from node $s_i$ is modeled as:
+Each round, every node $s_i$ uses $M$ packet trials to estimate delivery
+quality toward its assigned CH. The success probability of each trial
+from node $s_i$ is modeled as:
 \begin{equation}
     p_i(t) =
     \begin{cases}
@@ -240,7 +240,7 @@ $p_i(t) = p_{base}$, ensuring a smooth transition. When a node is
 directly beneath the jammer ($d_{i,J}(t) = 0$), $p_i(t) = p_{base}
 \cdot e^{-\kappa}$, which approaches zero for large $\kappa$.
 
-Each of the $M$ packets is decided independently; a packet is
+Each of the $M$ packet trials is decided independently; a trial is
 successfully received if a uniform random draw $u \sim \mathcal{U}(0,1)$
 satisfies $u \leq p_i(t)$; otherwise it is dropped. Nodes observe only
 the outcomes of these draws through their packet counters and have no
@@ -253,13 +253,13 @@ probability.
 Each node independently estimates its local jamming risk using only its
 own observed communication outcomes, requiring no knowledge of the
 jammer's position or trajectory. At round $t$, the instantaneous Packet
-Delivery Ratio (PDR) for node $s_i$ is computed from its burst of $M$
-transmitted packets as:
+Delivery Ratio (PDR) for node $s_i$ is computed from its $M$
+packet trials as:
 \begin{equation}
     PDR_i(t) = \frac{P^{recv}_{i}(t)}{M}
 \end{equation}
 where $P^{recv}_{i}(t) \in \{0, 1, \ldots, M\}$ is the number of
-packets successfully acknowledged by the CH in round $t$.
+packet trials successfully acknowledged by the CH in round $t$.
 
 To smooth out round-to-round fluctuations while remaining responsive to
 UAV movement, the PDR is filtered using an Exponentially Weighted Moving
@@ -284,18 +284,19 @@ coordination with other nodes.
 
 Nodes under active jamming waste transmission energy sending packets that
 will not survive the channel. To conserve this energy without distorting
-the honest PDR ratio, each node adapts its per-round burst size
+the honest PDR ratio, each node adapts its per-round packet-trial count
 proportionally to its EWMA jamming risk:
 \begin{equation}
     M_{\text{eff},i}(t) = \max\!\left(M_{\min},\;
     \left\lfloor M \cdot \bigl(1 - JR_i(t)\bigr) \right\rfloor\right)
     \label{eq:meff}
 \end{equation}
-where $M = 10$ is the nominal burst size and $M_{\min} = 2$ is the
-minimum floor that preserves enough samples for accurate JR estimation.
-At $JR_i = 1$ the node sends only $M_{\min} = 2$ packets, an 80 percent
-reduction in transmission energy, while at $JR_i = 0$ the full burst of
-$M = 10$ packets is used. Transmission and reception energy costs scale
+where $M = 10$ is the nominal packet-trial count used for PDR estimation
+and $M_{\min} = 2$ is the minimum floor that preserves enough samples for
+accurate JR estimation. At $JR_i = 1$ the node uses only
+$M_{\min} = 2$ packet trials, an 80 percent reduction in represented
+transmission load, while at $JR_i = 0$ the full $M = 10$ trial count is
+used. Transmission and reception energy costs scale
 proportionally by $M_{\text{eff},i}/M$, and the PDR denominator uses
 $M_{\text{eff},i}$ so that reduced transmissions are not credited as
 delivered packets.
@@ -371,7 +372,8 @@ where:
     \item $\phi_1$ is a fixed per-hop penalty discouraging unnecessarily
     long multi-hop paths.
     \item $\varepsilon_{amp}$ is the amplifier energy constant from the
-    LEACH radio energy model, $L$ is the packet length in bits, and
+    LEACH radio energy model, $L$ is the per-node payload size in bits
+    represented per round, and
     $d^2(s_i, s_j)$ is the squared Euclidean distance between nodes.
     The product $\varepsilon_{amp} \cdot L \cdot d^2(s_i,s_j)$ represents
     the actual transmission energy cost of the link, which grows
@@ -439,7 +441,7 @@ $\mathrm{emergency} \leftarrow \mathrm{false}$\;
             \left\lfloor M\left(1 - JR_i(t)\right)\right\rfloor\right)$
             \tcp*[r]{Eq.~(7)}
 
-        Transmit $M_{\mathrm{eff},i}(t)$ packets to CH,
+        Use $M_{\mathrm{eff},i}(t)$ packet trials toward CH,
         each succeeding w.p.\ $p_i(t)$; count $P^{recv}_i(t)$\;
 
         $PDR_i(t) \leftarrow P^{recv}_i(t) / M_{\mathrm{eff},i}(t)$\;
@@ -520,7 +522,7 @@ level of jamming-awareness in clustered WSNs.
     from geometrically safe regions while remaining compatible with
     the round-by-round energy budget. The variable-power mode and
     key-management components are omitted as inapplicable to our fixed-
-    amplitude energy model. Burst size is fixed at $M = 10$ throughout,
+    amplitude energy model. The packet-trial count is fixed at $M = 10$ throughout,
     isolating the effect of the IPN-aware election and cooperative relay
     from any adaptive transmission benefits. FCPA represents the
     strongest comparison baseline: it has access to exact jammer geometry
@@ -555,8 +557,8 @@ Initial energy        & $E_0$                        & 0.5 J         \\
 Simulation rounds     & $T$                          & 1000          \\
 CH target fraction    & $p_{CH}$                     & 0.05          \\
 Re-election interval  & $K_{elec}$                   & 5 rounds      \\
-Burst size            & $M$                          & 10 packets    \\
-Min. burst size       & $M_{\min}$                   & 2 packets     \\
+PDR trial count       & $M$                          & 10 trials     \\
+Min. trial count      & $M_{\min}$                   & 2 trials      \\
 TX range limit        & $r_{tx}$                     & 50 m          \\
 EWMA constant         & $\lambda$                    & 0.6           \\
 \midrule
@@ -569,7 +571,7 @@ UAV angular speed     & $\omega$                     & $2\pi/50$ rad/round \\
 Circuit energy        & $\varepsilon_{elec}$         & 50 nJ/bit     \\
 Amplifier energy      & $\varepsilon_{amp}$          & 100 pJ/bit/m$^2$ \\
 Aggregation energy    & $\varepsilon_{da}$           & 5 nJ/bit      \\
-Packet length         & $L$                          & 4000 bits     \\
+Per-round payload     & $L$                          & 4000 bits     \\
 \midrule
 CHScore weights       & $\alpha,\beta,\gamma,\delta$ & 0.35,\,0.20,\,0.35,\,0.10 \\
 Routing weights       & $\phi_1,\phi_2,\phi_3$      & $5{\times}10^{-4}$,\,1,\,$5{\times}10^{-4}$ \\
@@ -660,7 +662,7 @@ an additional 3.75 J of network energy by round 300 compared to FCPA.
 
 \subsubsection{Clustering is Essential Under the LEACH Energy Model}
 TBC's flat topology validates the clustering premise directly. Without
-cluster head aggregation, every alive node routes up to $M$ packets
+cluster head aggregation, every alive node routes up to $M$ packet trials
 individually toward the sink through multi-hop relay chains. Relay nodes
 near the sink accumulate forwarding load proportional to the entire
 upstream sub-network and exhaust their budgets within approximately 459

@@ -13,7 +13,6 @@ MATLAB simulation for a graduate wireless networks course project:
 
 ### Implemented
 - `schemes/run_proposed.m` — proposed scheme: JR-aware CHScore election + Dijkstra routing + proactive emergency CH re-election + adaptive burst size (M_eff)
-- `schemes/run_proposed_direct.m` — proposed scheme variant: same election, direct CH-to-BS (no Dijkstra)
 - `schemes/run_leach.m` — standard LEACH (kept as reference; removed from active comparison in Run 020)
 - `schemes/run_tbc.m` — TBC baseline: flat multi-hop topology, instantaneous PDR detection, energy-aware Dijkstra, threshold suppression (Run 019 energy fix)
 - `schemes/run_fcpa.m` — FCPA baseline: IPN-gated CH election + cooperative relay for jammed members (Run 020, adapted from López-Vilos et al. Sensors 2023)
@@ -56,12 +55,6 @@ Proposed wins on every metric — including against FCPA which has exact jammer 
 
 ## Important Gotchas
 
-**The routing layer does not contribute PDR in this geometry (Run 015).**
-`run_proposed_direct.m` (JR-aware election + direct CH-to-BS) matches or beats Dijkstra on every metric at center BS. ~78% of the 100x100m field is within r_tx=50m of BS=[50,50], so Dijkstra almost always confirms the direct path anyway. The entire PDR advantage over baselines comes from the election layer. Geometry tests at edge and corner BS confirmed routing does not improve at off-center BS either.
-
-**Scaled-up geometry (Run 016): Dijkstra is net-negative at 200x200m too.**
-At 200x200m with r_tx=75m (44% field coverage), Dijkstra loses -6.56pp PDR vs Direct due to relay overload at scale. The election advantage grows to +17pp over LEACH at scale.
-
 **`lambda = 0.6` is the best tested value.**
 Sweep over {0.6, 0.7, 0.8}: no PDR gain from higher lambda, worse blackouts from noise amplification with M=10 bursts.
 
@@ -84,7 +77,7 @@ All-rounds PDR and FND-truncated PDR. Zero-PDR round count was removed from `run
 FCPA has omniscient jammer geometry; proposed only estimates JR from experienced packet loss. Proposed still wins by +21.76pp all-rounds PDR and +162.6 rounds FND. EWMA temporal memory + adaptive M_eff outweighs the information advantage of exact geometry.
 
 **TBC energy convention: recv_packets/M not recv_packets (Run 019).**
-In `run_tbc.m`, per-hop TX/RX energy scales by `recv_packets/M` — a fraction ≤ 1. L=4000 bits is the total round payload (M packets combined), same as all other schemes. Using raw `recv_packets` would charge 10× too much per hop.
+In `run_tbc.m`, per-hop TX/RX energy scales by `recv_packets/M` — a fraction ≤ 1. L=4000 bits is the total round payload represented by the M packet trials, same as all other schemes. Using raw `recv_packets` would charge 10× too much per hop.
 
 ---
 
@@ -107,7 +100,6 @@ layer2/
   route_dijkstra.m
 schemes/
   run_proposed.m
-  run_proposed_direct.m
   run_leach.m                  (reference only — not in active comparison)
   run_tbc.m
   run_fcpa.m
@@ -127,9 +119,6 @@ references.bib               BibTeX entries for [1][2][3]
 testing/
   run_lambda_sensitivity.m
   run_phi1_sweep.m
-  run_routing_comparison.m
-  run_geometry_test.m
-  run_scale_test.m
   diag_proposed_zeros.m
   diag_leach_zeros.m
   diag_scale.m
@@ -171,6 +160,6 @@ Upload to Overleaf: `paper.tex`, `references.bib`, `figures/fig_combined.pdf`, `
 1. Create `schemes/run_<name>.m` returning a struct with `PDR`, `energy`, `delay`, `alive`, `t_death`, `label`.
 2. Use the same `r_tx` stranded-node accounting as the current schemes.
 3. Use `compute_energy`, `compute_packet_success`, `update_jamming_risk` from `core/` and `layer1/`.
-4. Use fixed M=10 (no adaptive M_eff) for fair comparison vs proposed.
+4. Use fixed M=10 packet-trial count (no adaptive M_eff) for fair comparison vs proposed.
 5. Wire into `main.m` and `run_multiseed.m`.
 6. Log results in `docs/SIMULATION_LOG.md`.

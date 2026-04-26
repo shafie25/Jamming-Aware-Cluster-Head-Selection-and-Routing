@@ -45,7 +45,7 @@ The paper discusses both fixed-power and variable-power variants. We implement *
 
 ### D. No Adaptive Burst Size
 
-Unlike the proposed scheme, FCPA uses **fixed M = 10 packets** throughout. This is a deliberate modelling choice to isolate the effect of CH election strategy and cooperative relay from the energy savings of adaptive burst size.
+Unlike the proposed scheme, FCPA uses a **fixed M = 10 packet-trial count** throughout. This is a deliberate modelling choice to isolate the effect of CH election strategy and cooperative relay from the energy savings of adaptive burst size.
 
 ---
 
@@ -69,10 +69,10 @@ is_CH = (rand(1, N) < T_thresh) & alive;
 Only alive, epoch-eligible, non-IPN-jammed nodes can be elected as CH. Fallback ensures at least one CH exists per round.
 
 **Step 3 — Cluster Formation**
-Each alive non-CH node joins the nearest CH within `r_tx = 50m`. Nodes with no CH within range are **stranded** — their `M` packets count as lost in the PDR denominator, no energy cost.
+Each alive non-CH node joins the nearest CH within `r_tx = 50m`. Nodes with no CH within range are **stranded** — their `M` packet trials count as lost in the PDR denominator, no energy cost.
 
 **Step 4 — Direct member transmission**
-Non-jammed members (`ipn_jammed = false`) transmit `M` packets directly to their CH:
+Non-jammed members (`ipn_jammed = false`) use `M` packet trials directly to their CH:
 ```matlab
 energy(i) -= compute_energy('tx', L, ..., d_ic)
 energy(c) -= compute_energy('rx', L, ...)
@@ -144,7 +144,7 @@ delay(t)  = mean hops per routed source (1 for direct, 2 for relay)
 | Jamming signal | EWMA JR (estimated from observed loss) | Geometric IPN (exact jammer position) |
 | Memory | EWMA smoothing, ~3-round lag | None — resets each round |
 | CH ineligibility | JR > threshold (continuous score) | d_jammer < r_j (binary gate) |
-| Burst size | Adaptive M_eff = max(2, round(M×(1−JR))) | Fixed M = 10 |
+| PDR trial count | Adaptive M_eff = max(2, round(M×(1−JR))) | Fixed M = 10 |
 | Relay routing | CH→BS only (Dijkstra confirms direct at this geometry) | Intra-cluster cooperative relay for jammed members |
 | Election score | CHScore (energy + connectivity + JR + BS-dist) | Epoch threshold gated by IPN |
 
@@ -162,7 +162,7 @@ FCPA vs Proposed tests two specific questions:
 1. Does **exact jammer position** knowledge outperform **learned temporal estimates** (EWMA JR)?
 2. Does **intra-cluster cooperative relay** for jammed members offset the energy overhead it introduces?
 
-FCPA has a structural advantage (omniscient jammer geometry) but a structural disadvantage (no temporal memory, relay overhead, fixed burst size). The result indicates which factor dominates.
+FCPA has a structural advantage (omniscient jammer geometry) but a structural disadvantage (no temporal memory, relay overhead, fixed packet-trial count). The result indicates which factor dominates.
 
 ---
 

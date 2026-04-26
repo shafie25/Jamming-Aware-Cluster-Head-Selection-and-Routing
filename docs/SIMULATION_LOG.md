@@ -30,7 +30,7 @@ First end-to-end run of the proposed scheme after the initial codebase was writt
 | `E0` | 0.5 J | Initial energy per node |
 | `T` | 1000 | Total simulation rounds |
 | `K_elec` | 10 | CH re-election interval (rounds) |
-| `M` | 10 | Burst size (packets/round) |
+| `M` | 10 | Packet trials per round for PDR estimation |
 | `p_CH` | 0.05 | Target CH fraction (dynamic K = round(0.05 × N_alive)) |
 | `r_c` | 15 m | Communication range for neighbor counting |
 | `r_exc` | 25 m | CH spatial exclusion radius |
@@ -50,7 +50,7 @@ First end-to-end run of the proposed scheme after the initial codebase was writt
 | `E_elec` | 50 nJ/bit | Circuit energy |
 | `E_amp` | 100 pJ/bit/m² | Amplifier energy |
 | `E_da` | 5 nJ/bit | Data aggregation energy |
-| `L` | 4000 bits | Packet length |
+| `L` | 4000 bits | Per-node payload bits per round represented by M trials |
 
 ### Results
 
@@ -300,7 +300,7 @@ Three new baselines were implemented and added to `schemes/`:
 | Baseline | File | Design |
 |---|---|---|
 | EWMA-Detect | `run_ewma_detect.m` | LEACH + EWMA JR tracking (computed but unused in decisions). Models detection-only approach (IEEE ICDSIS 2022). |
-| Threshold-JR | `run_threshold.m` | LEACH + member suppression when JR > 0.7. Suppressed members skip transmission; their M packets counted as lost in PDR denominator for honest accounting. |
+| Threshold-JR | `run_threshold.m` | LEACH + member suppression when JR > 0.7. Suppressed members skip transmission; their M packet trials counted as lost in PDR denominator for honest accounting. |
 | Reactive-CH | `run_reactive_ch.m` | LEACH + reactive CH re-election when elected CH has JR > 0.5. Replacement scored by energy/E0 − JR. All cluster members re-assigned to replacement. No inter-cluster routing. |
 
 Entry point: `run_multiseed.m` (updated to run all 5 schemes).
@@ -425,7 +425,7 @@ C(i→j) = φ1 + φ2·E_amp·L·d² + φ3·JR_j + φ4·(1 − E_j/E0)
 
 ### What This Run Was
 
-First run with a hard transmission range limit. Previously, every alive node was assigned to its nearest CH with no distance cap — long links were penalized only via the d² energy term. This run adds `r_tx = 50m`: member nodes farther than 50m from every CH are stranded and cannot join any cluster. Their M packets count in the PDR denominator as lost (honest accounting). The change applies equally to both proposed and LEACH.
+First run with a hard transmission range limit. Previously, every alive node was assigned to its nearest CH with no distance cap — long links were penalized only via the d² energy term. This run adds `r_tx = 50m`: member nodes farther than 50m from every CH are stranded and cannot join any cluster. Their M packet trials count in the PDR denominator as lost (honest accounting). The change applies equally to both proposed and LEACH.
 
 Motivation: in late-network rounds with 1–2 CHs, some nodes can be 50–70m from the nearest CH. Without a range cap, the simulation silently assigns them to a distant CH at unrealistic cost. The 50m limit is ~2× the average nearest-CH distance in a healthy 5-CH network (~22m), so healthy rounds are largely unaffected.
 
@@ -804,7 +804,7 @@ Documentation and validation run after adding emergency CH re-election to the pr
 | `E0` | 0.5 J | Initial energy per node |
 | `T` | 1000 | Total simulation rounds |
 | `K_elec` | 5 | Scheduled CH re-election interval |
-| `M` | 10 | Burst size (packets/round) |
+| `M` | 10 | Packet trials per round for PDR estimation |
 | `p_CH` | 0.05 | Target CH fraction |
 | `r_c` | 15 m | Neighbor counting radius for CHScore |
 | `r_exc` | 25 m | CH exclusion radius |
@@ -823,7 +823,7 @@ Documentation and validation run after adding emergency CH re-election to the pr
 | `E_elec` | 50 nJ/bit | Circuit energy |
 | `E_amp` | 100 pJ/bit/m^2 | Amplifier energy |
 | `E_da` | 5 nJ/bit | Aggregation energy |
-| `L` | 4000 bits | Packet length |
+| `L` | 4000 bits | Per-node payload bits per round represented by M trials |
 | Seeds | `1:20` | Multi-seed evaluation set |
 
 ### Results (mean � std across 20 seeds)
@@ -1066,7 +1066,7 @@ At r_tx=50m (canonical), proactive re-election caused slightly faster drain due 
 
 ### What This Run Was
 
-Implementation and evaluation of adaptive transmission rate. Jammed nodes waste energy sending M=10 packets that all fail (p≈0). Reducing burst size proportionally to EWMA jamming risk conserves that energy without changing the PDR ratio (0/2 ≈ 0/10), effectively extending node lifetime and keeping the network healthy longer.
+Implementation and evaluation of adaptive transmission rate. Jammed nodes waste energy using M=10 packet trials that all fail (p≈0). Reducing the represented transmission load proportionally to EWMA jamming risk conserves that energy without changing the PDR ratio (0/2 ≈ 0/10), effectively extending node lifetime and keeping the network healthy longer.
 
 ### Model Change
 
@@ -1215,7 +1215,7 @@ Same canonical config as Run 017. TBC-specific:
 ### Takeaways
 
 **1. TBC dies at round ~47 from relay overload — not from jamming.**
-After energy-aware routing was added, the network survives to round 47. The killer is nodes just inside the r_tx=50m ring around BS relaying packets for all corner/outer nodes. With 100 nodes × M=10 packets, a central relay node may forward hundreds of packets per round; at 4000-bit packets that exhausts 0.5J in under 10 rounds. The LEACH energy model with `E_amp × d^2` is far too costly for flat topology.
+After energy-aware routing was added, the network survives to round 47. The killer is nodes just inside the r_tx=50m ring around BS relaying traffic for all corner/outer nodes. With 100 nodes × M=10 packet trials, a central relay node may forward hundreds of represented trials per round; with the 4000-bit per-round payload convention, that exhausts 0.5J in under 10 rounds. The LEACH energy model with `E_amp × d^2` is far too costly for flat topology.
 
 **2. TBC's FND-truncated PDR (81.42%) is competitive.**
 During its ~47-round operational window, TBC delivers 81.4% of packets. The threshold suppression mechanism works correctly: jammed nodes sit out, clean nodes transmit effectively. The detection logic is sound; the failure is structural.
@@ -1244,7 +1244,7 @@ TBC is best presented as a "detection-only flat-topology" comparison that isolat
 
 ### What This Run Was
 
-Bug fix and re-evaluation of the TBC baseline. The Run 018 implementation incorrectly charged per-hop TX/RX energy scaled by `recv_packets` (the raw surviving packet count, starting at M=10), treating L as a per-packet size. The rest of the simulation treats L=4000 bits as the total round payload (all M packets combined), so the correct scaling factor is `recv_packets/M` — a fraction ≤ 1. The old code was charging M=10× too much energy per relay hop, killing the network in ~47 rounds instead of its actual lifetime.
+Bug fix and re-evaluation of the TBC baseline. The Run 018 implementation incorrectly charged per-hop TX/RX energy scaled by `recv_packets` (the raw surviving trial count, starting at M=10), treating L as a per-trial size. The rest of the simulation treats L=4000 bits as the total round payload represented by all M packet trials, so the correct scaling factor is `recv_packets/M` — a fraction ≤ 1. The old code was charging M=10× too much energy per relay hop, killing the network in ~47 rounds instead of its actual lifetime.
 
 ### The Bug
 
@@ -1266,7 +1266,7 @@ energy_delta(cur) -= (recv_packets/M) * (L*E_elec + L*E_amp*d_hop^2);
 energy_delta(nh)  -= (recv_packets/M) * L * E_elec;
 ```
 
-At full survival (`recv_packets == M`), fraction = 1 and cost = `L·E_elec + L·E_amp·d²` — identical to `compute_energy('tx')`. As packets are lost along the path, the relay pays proportionally less. The per-packet channel loss loop was also vectorised: `recv_packets = sum(rand(recv_packets,1) <= p(cur))`.
+At full survival (`recv_packets == M`), fraction = 1 and cost = `L·E_elec + L·E_amp·d²` — identical to `compute_energy('tx')`. As packet trials are lost along the path, the relay pays proportionally less. The per-trial channel loss loop was also vectorised: `recv_packets = sum(rand(recv_packets,1) <= p(cur))`.
 
 ### Results (mean ± std across 20 seeds)
 
@@ -1328,7 +1328,7 @@ Implementation and first 20-seed evaluation of the FCPA baseline, adapted from L
 | Cooperative relay | Member → argmin(e_coop) relay → CH for IPN-jammed members |
 | Load-balanced weight | argmax(1/e_coop) = argmin(e_coop) — cheapest 2-hop path |
 | Variable-power mode | Omitted — our energy model has no power control |
-| Burst size | Fixed M=10 (no adaptive M_eff — fair baseline) |
+| PDR trial count | Fixed M=10 (no adaptive M_eff — fair baseline) |
 
 ### Results (mean ± std across 20 seeds)
 
@@ -1352,7 +1352,7 @@ Clustering helps: FCPA survives 83 rounds longer than TBC. But cooperative relay
 This is counterintuitive but explicable: FCPA's cooperative relay for jammed members degrades per-round PDR before FND because relay nodes deplete unevenly. When a relay node dies mid-operation, jammed members behind it suddenly lose their relay path, causing PDR dips even before FND. TBC has uniform relay load across all nodes (flat topology), so its per-round PDR is consistently high until the central relay nodes suddenly fail.
 
 **4. FCPA achieves 26.8 zero-PDR rounds vs Proposed's 0 — confirming memory matters.**
-When the jammer passes directly over a cluster, FCPA's IPN gate fires and jammed members search for relays. If the jammer radius covers the entire relay pool simultaneously, no relay is found and all jammed members lose their packets that round — a blackout. The proposed scheme's adaptive M_eff handles the same situation by reducing burst size proportionally without full suppression, eliminating complete blackouts.
+When the jammer passes directly over a cluster, FCPA's IPN gate fires and jammed members search for relays. If the jammer radius covers the entire relay pool simultaneously, no relay is found and all jammed members lose their packet trials that round — a blackout. The proposed scheme's adaptive M_eff handles the same situation by reducing represented transmission load proportionally without full suppression, eliminating complete blackouts.
 
 **5. The exact-position advantage of FCPA is negated by lack of temporal smoothing.**
 FCPA's IPN gate resets every round. When the jammer departs a region, FCPA immediately (next round) allows previously-jammed nodes to be CHs again. The proposed scheme's EWMA JR takes ~3 rounds to recover — but this "lag" is actually beneficial: it avoids immediately re-electing a CH that just experienced jamming and may face it again next round as the UAV continues on its orbital path.

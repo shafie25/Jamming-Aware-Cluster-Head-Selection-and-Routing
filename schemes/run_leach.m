@@ -14,14 +14,14 @@
 %   J_x, J_y   — jammer trajectory vectors, length T (same as proposed)
 %   E0         — initial energy per node (J)
 %   T          — total simulation rounds
-%   M          — burst size (packets/round), for PDR computation
+%   M          — packet trials per round, for PDR computation
 %   p_base     — baseline packet success probability
 %   kappa      — jamming decay constant
 %   r_j        — jamming radius (m)
 %   E_elec     — circuit energy (J/bit)
 %   E_amp      — amplifier energy (J/bit/m^2)
 %   E_da       — data aggregation energy (J/bit)
-%   L          — packet length (bits)
+%   L          — per-node payload bits per round represented by the M trials
 %
 % Output:
 %   results    — struct with fields: PDR, energy, delay, alive, t_death, label

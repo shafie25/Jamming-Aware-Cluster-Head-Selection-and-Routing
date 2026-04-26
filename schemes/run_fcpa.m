@@ -15,12 +15,12 @@
 % Structural differences from proposed scheme (what this comparison isolates):
 %   - Jamming signal: exact jammer geometry (IPN) vs EWMA JR (experience)
 %   - Memory: none — IPN gate resets every round
-%   - Burst size: fixed M (no adaptive M_eff)
+%   - Packet-trial count: fixed M (no adaptive M_eff)
 %   - Cooperative intra-cluster relay vs CH-level aggregation only
 %
 % Energy/PDR accounting:
 %   - PDR = member-to-CH packets delivered (consistent with run_leach.m)
-%   - Fixed M packets per alive node in total_sent denominator
+%   - Fixed M packet trials per alive node in total_sent denominator
 %   - Relay nodes accumulate TX+RX forwarding costs via deferred delta
 %
 % Inputs: same workspace variables as run_proposed.m / run_leach.m
@@ -199,7 +199,7 @@ function results = run_fcpa(x, y, BS, J_x, J_y, E0, T, M, ...
             energy_delta(c) = energy_delta(c) - compute_energy('tx',  L, E_elec, E_amp, E_da, dist_to_BS(c), 0);
         end
 
-        %% --- Stranded nodes: count M packets as lost ---
+        %% --- Stranded nodes: count M packet trials as lost ---
         n_stranded = sum(alive & ~is_CH & (CH_assign == 0));
         total_sent = total_sent + n_stranded * M;
 

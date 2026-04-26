@@ -31,11 +31,6 @@ All sensitivity, diagnostic, and comparison scripts live in `testing/` and shoul
 testing/run_lambda_sensitivity.m   % EWMA lambda sweep (proposed only)
 testing/run_phi1_sweep.m           % phi1 per-hop penalty sweep (proposed only)
 
-% Routing and geometry experiments
-testing/run_routing_comparison.m   % Dijkstra vs direct CH-to-BS vs LEACH (center BS)
-testing/run_geometry_test.m        % BS position geometry test (center/edge/corner)
-testing/run_scale_test.m           % 200x200m scaled deployment (Dijkstra vs Direct vs LEACH)
-
 % Diagnostics
 testing/diag_proposed_zeros.m      % per-round zero-PDR cause breakdown (proposed)
 testing/diag_leach_zeros.m         % per-round zero-PDR cause breakdown (LEACH)
@@ -84,7 +79,7 @@ Output: `figures/fig_combined.pdf` (3-panel PDR/Energy/Alive), plus individual `
 
 ### 1. Jamming Risk Estimation
 
-Each alive non-CH node sends a burst of packets per round. The burst size adapts to jamming risk:
+Each alive non-CH node uses packet trials per round for PDR estimation. The trial count adapts to jamming risk:
 
 ```
 M_eff(i) = max(M_min, round(M * (1 - JR(i))))   % M=10, M_min=2
@@ -126,7 +121,7 @@ CHs route to the BS via Dijkstra on a fully connected CH graph:
 C(i,j) = phi1 + phi2 * E_amp * L * d(i,j)^2 + phi3 * JR_j
 ```
 
-> **Note (Run 015):** Routing experiments showed that in this compact geometry (BS at center, 100x100m), direct CH-to-BS performs equivalently to Dijkstra — ~78% of the field is within r_tx=50m of the BS. The JR-aware election layer accounts for the full PDR advantage over baselines. Dijkstra is retained as a framework component; it would contribute meaningfully in larger or asymmetric deployments.
+> **Note:** In this compact geometry (BS at center, 100x100m), many CH-to-BS paths are short because much of the field is within r_tx=50m of the BS. Dijkstra is retained as the proposed framework's inter-cluster routing component.
 
 ---
 
@@ -144,7 +139,7 @@ With `kappa=10`, a node at the jammer center has `p ≈ 0.00004` — effectively
 ### r_c vs r_tx
 
 - `r_c = 15m` — neighbor counting radius for the CHScore connectivity term only. **Not a radio limit.**
-- `r_tx = 50m` — hard member-to-CH transmission limit. Nodes farther than this from every CH are stranded and their packets count as lost in the PDR denominator.
+- `r_tx = 50m` — hard member-to-CH transmission limit. Nodes farther than this from every CH are stranded and their packet trials count as lost in the PDR denominator.
 
 ### PDR Reporting (two windows)
 
@@ -195,7 +190,6 @@ layer2/
 
 schemes/
   run_proposed.m                proposed scheme (Dijkstra routing)
-  run_proposed_direct.m         proposed scheme (direct CH-to-BS, no Dijkstra)
   run_leach.m                   standard LEACH (reference only, not in active comparison)
   run_tbc.m                     TBC baseline (flat multi-hop, threshold suppress)
   run_fcpa.m                    FCPA baseline (IPN-gated election, cooperative relay)
@@ -218,8 +212,6 @@ references.bib                  BibTeX entries for baseline references [1][2][3]
 testing/
   run_lambda_sensitivity.m      EWMA lambda sweep
   run_phi1_sweep.m              phi1 per-hop penalty sweep
-  run_routing_comparison.m      Dijkstra vs direct CH-to-BS vs LEACH
-  run_geometry_test.m           BS position geometry test
   diag_proposed_zeros.m         proposed zero-PDR round diagnostics
   diag_leach_zeros.m            LEACH zero-PDR round diagnostics
   visualize_tbc_routing.m       TBC routing snapshot: paths, relay load, jammed nodes

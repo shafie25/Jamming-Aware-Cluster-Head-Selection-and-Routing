@@ -4,7 +4,7 @@
 %
 % Inputs:
 %   type      — operation type: 'tx', 'rx', 'agg', 'overhead'
-%   L         — packet length (bits)
+%   L         — per-node payload bits per round represented by packet trials
 %   E_elec    — circuit energy (J/bit)
 %   E_amp     — amplifier energy (J/bit/m^2)
 %   E_da      — data aggregation energy (J/bit)
@@ -19,13 +19,13 @@ function E = compute_energy(type, L, E_elec, E_amp, E_da, d, n_members)
     switch type
 
         case 'tx'
-            % Member node transmitting L bits to CH over distance d
+            % Member node transmitting the represented L-bit round payload to CH
             % Or CH forwarding aggregated data to next hop over distance d
             % Energy grows quadratically with distance (free-space path loss)
             E = L * E_elec + L * E_amp * d^2;
 
         case 'rx'
-            % Receiving L bits — no amplifier cost, circuit energy only
+            % Receiving the represented L-bit round payload: circuit energy only
             E = L * E_elec;
 
         case 'agg'
