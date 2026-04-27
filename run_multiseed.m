@@ -12,7 +12,7 @@ seeds   = 1:100;
 n_seeds = length(seeds);
 n_schemes = 3;
 
-%% Pre-allocate storage (need T — load config once)
+%% Pre-allocate storage (need T, N — load config once)
 config;
 
 store = struct();
@@ -79,11 +79,26 @@ fprintf('========================================\n\n');
 fprintf('%-22s | %-20s | %-20s | %-20s\n', 'Metric', scheme_names{:});
 fprintf('%s\n', repmat('-',1,92));
 
-% First node death
-fprintf('%-22s |', 'First death (rnd)');
+% First node death (FND)
+fprintf('%-22s |', 'FND (rnd)');
 for k = 1:n_schemes
     td = tdeath(:,k);
     fprintf(' %6.1f +/- %5.1f      |', mean(td,'omitnan'), std(td,'omitnan'));
+end
+fprintf('\n');
+
+% Half-network death (HND): first round when alive <= N/2
+fprintf('%-22s |', 'HND (rnd)');
+for k = 1:n_schemes
+    fd = scheme_fields{k};
+    hnd = zeros(n_seeds, 1);
+    for s = 1:n_seeds
+        alive_s  = store.alive.(fd)(s,:);
+        half_idx = find(alive_s <= N/2, 1, 'first');
+        hnd(s)   = half_idx;   % NaN if never reached (half_idx empty → MATLAB returns [])
+        if isempty(half_idx); hnd(s) = T; end
+    end
+    fprintf(' %6.1f +/- %5.1f      |', mean(hnd,'omitnan'), std(hnd,'omitnan'));
 end
 fprintf('\n');
 
@@ -96,7 +111,7 @@ for k = 1:n_schemes
 end
 fprintf('\n');
 
-% --- PDR Window 2: FND-truncated (rounds 1 to first node death per seed) ---
+% --- PDR Window 2: FND-truncated ---
 fprintf('%-22s |', 'PDR FND-trunc (%)');
 for k = 1:n_schemes
     fd = scheme_fields{k};
@@ -113,6 +128,15 @@ for k = 1:n_schemes
 end
 fprintf('\n');
 
+% --- PDR @ round 300 (all schemes fully alive — window-artefact-free snapshot) ---
+fprintf('%-22s |', 'PDR@r300 (%)');
+for k = 1:n_schemes
+    fd = scheme_fields{k};
+    pm300 = store.PDR.(fd)(:, 300) * 100;
+    fprintf(' %6.2f +/- %5.2f      |', mean(pm300), std(pm300));
+end
+fprintf('\n');
+
 % Energy @ round 300
 fprintf('%-22s |', 'Energy@r300 (J)');
 for k = 1:n_schemes
@@ -121,6 +145,19 @@ for k = 1:n_schemes
     fprintf(' %6.2f +/- %5.2f      |', mean(em), std(em));
 end
 fprintf('\n');
+
+% --- Total packets delivered: sum_t( PDR(t) * alive(t) * M ) in thousands ---
+fprintf('%-22s |', 'Total del. pkts (k)');
+for k = 1:n_schemes
+    fd = scheme_fields{k};
+    tpd = zeros(n_seeds, 1);
+    for s = 1:n_seeds
+        tpd(s) = sum(store.PDR.(fd)(s,:) .* store.alive.(fd)(s,:)) * M / 1000;
+    end
+    fprintf(' %6.1f +/- %5.1f      |', mean(tpd), std(tpd));
+end
+fprintf('\n');
+
 fprintf('%s\n', repmat('-',1,92));
 
 %% Build structs for plotting
@@ -136,6 +173,17 @@ for k = 1:n_schemes
     ms{k}.alive_mean  = mean(store.alive.(fd),  1);
     ms{k}.alive_std   = std( store.alive.(fd), 0, 1);
     ms{k}.label       = scheme_names{k};
+end
+
+% Pre-compute per-seed total delivered packets for plotting struct
+for k = 1:n_schemes
+    fd = scheme_fields{k};
+    tpd_all = zeros(n_seeds, T);
+    for s = 1:n_seeds
+        tpd_all(s,:) = cumsum(store.PDR.(fd)(s,:) .* store.alive.(fd)(s,:)) * M;
+    end
+    ms{k}.cum_pkts_mean = mean(tpd_all, 1);
+    ms{k}.cum_pkts_std  = std( tpd_all, 0, 1);
 end
 
 plot_multiseed(ms, T);

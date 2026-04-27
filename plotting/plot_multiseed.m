@@ -55,20 +55,25 @@ function plot_multiseed(results_all, T)
     title('Network Energy (mean \pm std)');
     legend('Location', 'northeast', 'FontSize', 8); grid on;
 
-    %% Panel 3 — Average End-to-End Delay
+    %% Panel 3 — Cumulative Delivered Packets
+    % Each round contributes PDR(t) * alive(t) * M packets to the running total.
+    % Curves plateau when a scheme's network dies, making the lifetime×PDR
+    % tradeoff visible as a gap between plateau heights.
     subplot(2, 2, 3); hold on;
     for s = 1:n_schemes
         r = results_all{s};
         c = colors{s};
-        upper = r.delay_mean + r.delay_std;
-        lower = max(r.delay_mean - r.delay_std, 0);
-        fill([rounds, fliplr(rounds)], [upper, fliplr(lower)], ...
-            c, 'FaceAlpha', 0.12, 'EdgeColor', 'none', 'HandleVisibility', 'off');
-        plot(rounds, r.delay_mean, 'Color', c, 'LineWidth', 1.5, 'DisplayName', r.label);
+        if isfield(r, 'cum_pkts_mean')
+            upper = r.cum_pkts_mean + r.cum_pkts_std;
+            lower = max(r.cum_pkts_mean - r.cum_pkts_std, 0);
+            fill([rounds, fliplr(rounds)], [upper, fliplr(lower)], ...
+                c, 'FaceAlpha', 0.12, 'EdgeColor', 'none', 'HandleVisibility', 'off');
+            plot(rounds, r.cum_pkts_mean, 'Color', c, 'LineWidth', 1.5, 'DisplayName', r.label);
+        end
     end
-    xlabel('Round'); ylabel('Avg Hops');
-    title('Average End-to-End Delay (mean \pm std)');
-    legend('Location', 'northeast', 'FontSize', 8); grid on;
+    xlabel('Round'); ylabel('Cumulative Packets');
+    title('Cumulative Delivered Packets (mean \pm std)');
+    legend('Location', 'northwest', 'FontSize', 8); grid on;
 
     %% Panel 4 — Alive Nodes
     subplot(2, 2, 4); hold on;
