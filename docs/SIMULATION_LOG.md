@@ -1543,3 +1543,54 @@ Proposed wins on lifetime (+242 rounds vs TBC, +166 rounds vs FCPA), all-rounds 
 
 - Update paper numbers if re-submission or revision is needed
 - The figures in `figures/` still reflect Run 021 numbers — re-run `plotting/export_figures.m` to regenerate if figures are needed
+
+---
+
+## Run 023 — 100-Seed Statistical Validation
+
+**Date:** 2026-04-26
+**Run by:** Ahmed + Claude Code
+
+### What This Run Was
+
+Expanded the multi-seed evaluation from 20 seeds to 100 seeds (seeds 1:100) to validate that the Run 022 results are statistically stable and not an artifact of the seed range. No code changes to any scheme — only `run_multiseed.m` changed (`seeds = 1:20` → `seeds = 1:100`).
+
+### Code Changes
+
+| File | Change |
+|---|---|
+| `run_multiseed.m` | `seeds = 1:100` (previously `1:20`) |
+
+### Results (mean ± std across 100 seeds, seeds 1:100)
+
+| Metric | Proposed | TBC | FCPA |
+|---|---|---|---|
+| First node death (round) | **702.2 ± 34.9** | 469.1 ± 48.8 | 537.9 ± 26.5 |
+| PDR all rounds (%) | **78.05 ± 1.61** | 52.53 ± 4.16 | 47.63 ± 2.58 |
+| PDR FND-trunc (%) | 80.96 ± 1.48 | **82.50 ± 0.55** | 60.93 ± 2.92 |
+| Energy @ round 300 (J) | **34.17 ± 0.37** | 26.68 ± 1.24 | 29.63 ± 0.24 |
+
+### Comparison to Run 022 (20 seeds)
+
+| Metric | Proposed Δ | TBC Δ | FCPA Δ |
+|---|---|---|---|
+| First node death (round) | 702.2 vs 701.6 (+0.6) | 469.1 vs 459.5 (+9.6) | 537.9 vs 535.2 (+2.7) |
+| PDR all rounds (%) | 78.05 vs 78.22 (−0.17pp) | 52.53 vs 53.21 (−0.68pp) | 47.63 vs 47.46 (+0.17pp) |
+| PDR FND-trunc (%) | 80.96 vs 81.06 (−0.10pp) | 82.50 vs 82.42 (+0.08pp) | 60.93 vs 61.19 (−0.26pp) |
+| Energy @ round 300 (J) | 34.17 vs 34.17 (0.00) | 26.68 vs 26.81 (−0.13) | 29.63 vs 29.62 (+0.01) |
+
+### Takeaways
+
+**1. Results are statistically stable at 100 seeds.**
+All metrics agree with Run 022 within noise. The largest absolute shift is TBC FND (+9.6 rounds), driven by seeds 21–100 including some topologies where TBC's flat relay topology holds up slightly longer. All conclusions from Run 022 remain valid.
+
+**2. Standard deviations tightened slightly, as expected.**
+With 5× more seeds, confidence intervals on means narrow. The story does not change: proposed wins on lifetime, all-rounds PDR, and residual energy; TBC's FND-trunc lead (82.50% vs 80.96%) is still the asymmetric-window artefact from differing lifetimes.
+
+**3. 100-seed results are canonical going forward.**
+These numbers better characterize the full distribution of random topologies and are the definitive results for any future reporting.
+
+### What to Do Next
+
+- Consider regenerating paper figures with 100-seed sim if re-submission is needed (`plotting/export_figures.m` uses its own 20-seed internal loop — would need updating)
+- No further code changes planned

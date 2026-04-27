@@ -150,16 +150,16 @@ With `kappa=10`, a node at the jammer center has `p ≈ 0.00004` — effectively
 
 ---
 
-## Current Best Results (Run 022, 20 seeds)
+## Current Best Results (Run 023, 100 seeds)
 
 | Metric | Proposed | TBC | FCPA |
 |---|---|---|---|
-| First node death (round) | **701.6 ± 34.5** | 459.5 ± 41.7 | 535.2 ± 24.3 |
-| PDR all rounds (%) | **78.22 ± 1.54** | 53.21 ± 4.42 | 47.46 ± 2.48 |
-| PDR FND-trunc (%) | 81.06 ± 1.19 | **82.42 ± 0.58** | 61.19 ± 2.96 |
-| Energy @ round 300 (J) | **34.17 ± 0.42** | 26.81 ± 1.12 | 29.62 ± 0.20 |
+| First node death (round) | **702.2 ± 34.9** | 469.1 ± 48.8 | 537.9 ± 26.5 |
+| PDR all rounds (%) | **78.05 ± 1.61** | 52.53 ± 4.16 | 47.63 ± 2.58 |
+| PDR FND-trunc (%) | 80.96 ± 1.48 | **82.50 ± 0.55** | 60.93 ± 2.92 |
+| Energy @ round 300 (J) | **34.17 ± 0.37** | 26.68 ± 1.24 | 29.63 ± 0.24 |
 
-Proposed wins on lifetime (+242 rounds vs TBC, +166 rounds vs FCPA), all-rounds PDR (+25pp vs TBC, +30pp vs FCPA), and residual energy. TBC's slightly higher FND-trunc PDR is an asymmetric window artefact — its truncation window covers only rounds 1–459 (the healthy early phase), while proposed's window extends to round 701.
+Proposed wins on lifetime (+233 rounds vs TBC, +164 rounds vs FCPA), all-rounds PDR (+25.52pp vs TBC, +30.42pp vs FCPA), and residual energy. TBC's slightly higher FND-trunc PDR is an asymmetric window artefact — its truncation window covers only rounds 1–469 (the healthy early phase), while proposed's window extends to round 702.
 
 Key findings:
 

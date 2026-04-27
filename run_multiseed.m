@@ -8,7 +8,7 @@
 clc; clear; close all;
 addpath(genpath('.'));
 
-seeds   = 1:20;
+seeds   = 1:100;
 n_seeds = length(seeds);
 n_schemes = 3;
 
