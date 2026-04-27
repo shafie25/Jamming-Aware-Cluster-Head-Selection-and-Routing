@@ -1594,3 +1594,65 @@ These numbers better characterize the full distribution of random topologies and
 
 - Consider regenerating paper figures with 100-seed sim if re-submission is needed (`plotting/export_figures.m` uses its own 20-seed internal loop — would need updating)
 - No further code changes planned
+
+---
+
+## Run 024 — FCPA Election Frequency Fix (K_elec Cadence)
+
+**Date:** 2026-04-27
+**Run by:** Ahmed + Claude Code
+
+### What This Run Was
+
+Identified that FCPA was re-electing CHs and charging ADV+JOIN overhead every single round, while proposed only does this every K_elec=5 rounds. The paper's FCPA re-clusters only when the jammer moves or changes power; with a continuously orbiting UAV, this created an unfair 5× overhead penalty against FCPA. Fix: wrapped FCPA's CH election + cluster formation + overhead block in a `need_election` conditional identical to proposed (mod(t,K_elec)==0 || t==1 || ch_died_last_round || no alive CHs). K_elec=5 passed as a new function argument.
+
+### Code Changes
+
+| File | Change |
+|---|---|
+| `schemes/run_fcpa.m` | K_elec parameter added; CH election block wrapped in `need_election` conditional; `is_CH`/`CH_assign` persist between elections; `ch_died_last_round` flag added |
+| `main.m` | K_elec passed to run_fcpa call |
+| `run_multiseed.m` | K_elec passed to run_fcpa call |
+| `docs/fcpa_baseline.md` | Updated Step 2 description, comparison table, and adaptation omissions table |
+
+### Results (mean ± std across 100 seeds, seeds 1:100)
+
+| Metric | Proposed | TBC | FCPA |
+|---|---|---|---|
+| First node death (round) | **702.2 ± 34.9** | 469.1 ± 48.8 | 572.2 ± 39.9 |
+| PDR all rounds (%) | **78.05 ± 1.61** | 52.53 ± 4.16 | 58.35 ± 2.98 |
+| PDR FND-trunc (%) | 80.96 ± 1.48 | **82.50 ± 0.55** | 59.70 ± 3.14 |
+| Energy @ round 300 (J) | **34.17 ± 0.37** | 26.68 ± 1.24 | 31.96 ± 0.22 |
+
+### FCPA Δ vs Run 023
+
+| Metric | Run 023 | Run 024 | Δ |
+|---|---|---|---|
+| First node death (round) | 537.9 ± 26.5 | 572.2 ± 39.9 | +34.3 rounds |
+| PDR all rounds (%) | 47.63 ± 2.58 | 58.35 ± 2.98 | +10.72pp |
+| PDR FND-trunc (%) | 60.93 ± 2.92 | 59.70 ± 3.14 | −1.23pp |
+| Energy @ round 300 (J) | 29.63 ± 0.24 | 31.96 ± 0.22 | +2.33J |
+
+Proposed and TBC numbers are bit-identical to Run 023 (code unchanged).
+
+### Takeaways
+
+**1. The overhead penalty was significant.**
+Reducing FCPA election overhead from every round to every 5 rounds gained +34 rounds of lifetime and +10.7pp all-rounds PDR. This confirms the overhead fix was the most impactful single-variable change available for FCPA without changing its fundamental architecture.
+
+**2. FND-trunc slightly lower (59.70% vs 60.93%) — same asymmetric-window artefact.**
+FCPA's window now extends to round 572 instead of 538. The extra ~34 rounds at the tail of FCPA's life are more degraded (fewer alive nodes, more jammer interference on survivors), pulling the window average down slightly. This is not a real PDR regression.
+
+**3. FCPA is now a fairer and tougher baseline.**
+The gap to proposed narrowed from 30.42pp to 19.70pp in all-rounds PDR, and from +164 to +130 rounds in lifetime. These are honest improvements that come from removing an implementation artefact, not from giving FCPA capabilities it shouldn't have.
+
+**4. Proposed still wins cleanly on every key metric.**
++130 rounds lifetime vs FCPA, +19.70pp all-rounds PDR, +2.21J residual energy. The proposed scheme's EWMA temporal memory + adaptive M_eff + sleep timer continue to dominate even against a fairer FCPA baseline.
+
+**5. No inter-CH routing added to FCPA (deliberate).**
+Dijkstra multi-hop CH→BS routing remains a proposed-only feature. CHs beyond r_tx=50m from BS still lose their collected packets in FCPA. This is the next candidate improvement if further fairness adjustment is desired.
+
+### What to Do Next
+
+- Update paper numbers if a stronger FCPA baseline is needed for the submission narrative
+- Consider whether to also update export_figures.m to use 100-seed sim for paper figures

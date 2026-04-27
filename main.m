@@ -34,7 +34,7 @@ fprintf('  TBC           first node death: round %d\n', results_tbc.t_death);
 %% Run FCPA Baseline
 fprintf('Running FCPA baseline...\n');
 results_fcpa = run_fcpa(x, y, BS, J_x, J_y, ...
-    E0, T, M, p_CH, p_base, kappa, r_j, E_elec, E_amp, E_da, L, r_tx);
+    E0, T, M, K_elec, p_CH, p_base, kappa, r_j, E_elec, E_amp, E_da, L, r_tx);
 fprintf('  FCPA          first node death: round %d\n', results_fcpa.t_death);
 
 fprintf('Done.\n');

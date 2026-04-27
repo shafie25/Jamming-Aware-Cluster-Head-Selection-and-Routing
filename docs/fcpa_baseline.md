@@ -61,12 +61,16 @@ ipn_jammed = d_jammer < r_j;
 ```
 `p(i)` is the packet success probability from our standard exponential decay model. `ipn_jammed` is the binary IPN gate derived from jammer geometry.
 
-**Step 2 — CH Election (LEACH epoch + IPN eligibility)**
+**Step 2 — CH Election (LEACH epoch + IPN eligibility, every K_elec rounds)**
 ```matlab
-T_thresh(G & alive & ~ipn_jammed) = p_CH / denom;
-is_CH = (rand(1, N) < T_thresh) & alive;
+need_election = (mod(t, K_elec) == 0) || (t == 1) || ch_died_last_round || ~any(is_CH & alive);
+if need_election
+    T_thresh(G & alive & ~ipn_jammed) = p_CH / denom;
+    is_CH = (rand(1, N) < T_thresh) & alive;
+    % ... cluster formation + overhead charge inside this block
+end
 ```
-Only alive, epoch-eligible, non-IPN-jammed nodes can be elected as CH. Fallback ensures at least one CH exists per round.
+Election fires every `K_elec` rounds (same cadence as proposed) plus emergency cases (CH died last round, or no alive CHs). The paper re-clusters only when the jammer moves or changes power; with a continuously orbiting UAV jammer, firing every round was an unfair per-round overhead penalty — roughly 5× more overhead than proposed. Only alive, epoch-eligible, non-IPN-jammed nodes can be elected as CH. Fallback ensures at least one CH exists per election round. Between elections, `is_CH` and `CH_assign` persist unchanged.
 
 **Step 3 — Cluster Formation**
 Each alive non-CH node joins the nearest CH within `r_tx = 50m`. Nodes with no CH within range are **stranded** — their `M` packet trials count as lost in the PDR denominator, no energy cost.
@@ -144,9 +148,10 @@ delay(t)  = mean hops per routed source (1 for direct, 2 for relay)
 | Jamming signal | EWMA JR (estimated from observed loss) | Geometric IPN (exact jammer position) |
 | Memory | EWMA smoothing, ~3-round lag | None — resets each round |
 | CH ineligibility | JR > threshold (continuous score) | d_jammer < r_j (binary gate) |
-| PDR trial count | Adaptive M_eff = max(2, round(M×(1−JR))) | Fixed M = 10 |
-| Relay routing | CH→BS only (Dijkstra confirms direct at this geometry) | Intra-cluster cooperative relay for jammed members |
+| PDR trial count | Adaptive M_eff = round(M×(1−JR)), floor=0 | Fixed M = 10 |
+| Relay routing | CH→BS only via Dijkstra multi-hop | Intra-cluster cooperative relay for jammed members; direct single-hop CH→BS |
 | Election score | CHScore (energy + connectivity + JR + BS-dist) | Epoch threshold gated by IPN |
+| Election frequency | Every K_elec=5 rounds + emergency | Every K_elec=5 rounds + emergency (Run 024 fix) |
 
 ---
 
@@ -175,6 +180,8 @@ FCPA has a structural advantage (omniscient jammer geometry) but a structural di
 | Multi-jammer scenario | N/A | Single UAV jammer by design |
 | Static jammer evaluation | N/A | Our UAV jammer is mobile (harder threat model) |
 | IPN from received power | Replaced with d_jammer < r_j gate | Jammer position available directly as J_x(t)/J_y(t); avoids introducing a separate IPN parameter |
+| Per-modification re-clustering | Reduced to K_elec=5 cadence (Run 024) | Paper re-clusters only on jammer movement/power change; mobile UAV caused every-round re-election, introducing 5× overhead penalty vs proposed |
+| Weighted multi-relay (Eq. 9 true load balance) | Approximated as argmin single-relay | Without per-link power control, routing fractions through suboptimal relays increases total energy; argmin is the correct optimum under fixed-power LEACH model |
 
 ---
 

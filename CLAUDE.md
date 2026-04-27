@@ -9,7 +9,7 @@ MATLAB simulation for a graduate wireless networks course project:
 
 ---
 
-## Current State (as of 2026-04-26, Run 023)
+## Current State (as of 2026-04-27, Run 024)
 
 ### Implemented
 - `schemes/run_proposed.m` — proposed scheme: JR-aware CHScore election + Dijkstra routing + proactive emergency CH re-election + adaptive burst size (M_eff)
@@ -17,6 +17,7 @@ MATLAB simulation for a graduate wireless networks course project:
 - `schemes/run_tbc.m` — TBC baseline: flat multi-hop topology, instantaneous PDR detection, energy-aware Dijkstra, threshold suppression (Run 019 energy fix)
 - `schemes/run_fcpa.m` — FCPA baseline: IPN-gated CH election + cooperative relay for jammed members (Run 020, adapted from López-Vilos et al. Sensors 2023)
 - `run_multiseed.m` — main evaluation: seeds 1:100, Proposed + TBC + FCPA, 2-window PDR + energy@r300
+- `schemes/run_fcpa.m` — FCPA baseline: K_elec-gated election (Run 024), IPN-gated CH election + cooperative relay
 - `plotting/visualize_snapshot.m` — 2D network map with JR heatmap and routing paths
 - `plotting/export_figures.m` — runs 20-seed sim internally and exports publication-quality PDFs/PNGs to `figures/` (uses its own 20-seed loop, separate from run_multiseed.m)
 - `testing/visualize_tbc_routing.m` — TBC routing snapshot: paths, relay load, jammed/isolated nodes
@@ -43,16 +44,16 @@ MATLAB simulation for a graduate wireless networks course project:
 - PDR measured end-to-end at the BS: packets must survive every routing hop via Dijkstra, not just reach the CH (fixed in Run 022)
 - Dijkstra enforces `r_tx=50m` radio range — edges beyond range pruned from cost matrix (fixed in Run 022)
 
-### Current Best Comparative Results (Run 023, 100 seeds)
+### Current Best Comparative Results (Run 024, 100 seeds)
 
 | Metric | Proposed | TBC | FCPA |
 |---|---|---|---|
-| First node death (round) | **702.2 +/- 34.9** | 469.1 +/- 48.8 | 537.9 +/- 26.5 |
-| PDR all rounds (%) | **78.05 +/- 1.61** | 52.53 +/- 4.16 | 47.63 +/- 2.58 |
-| PDR FND-trunc (%) | 80.96 +/- 1.48 | **82.50 +/- 0.55** | 60.93 +/- 2.92 |
-| Energy @ round 300 (J) | **34.17 +/- 0.37** | 26.68 +/- 1.24 | 29.63 +/- 0.24 |
+| First node death (round) | **702.2 +/- 34.9** | 469.1 +/- 48.8 | 572.2 +/- 39.9 |
+| PDR all rounds (%) | **78.05 +/- 1.61** | 52.53 +/- 4.16 | 58.35 +/- 2.98 |
+| PDR FND-trunc (%) | 80.96 +/- 1.48 | **82.50 +/- 0.55** | 59.70 +/- 3.14 |
+| Energy @ round 300 (J) | **34.17 +/- 0.37** | 26.68 +/- 1.24 | 31.96 +/- 0.22 |
 
-Proposed wins on lifetime (+233 rounds vs TBC, +164 rounds vs FCPA), all-rounds PDR (+25.52pp vs TBC, +30.42pp vs FCPA), and residual energy. TBC's slightly higher FND-trunc (82.50% vs 80.96%) is an asymmetric window artefact — TBC's window covers only rounds 1-469 (its healthy phase), while proposed's window extends to round 702. 100-seed results are statistically consistent with 20-seed Run 022 (all means agree within 1 std).
+Proposed wins on lifetime (+233 rounds vs TBC, +130 rounds vs FCPA), all-rounds PDR (+25.52pp vs TBC, +19.70pp vs FCPA), and residual energy. TBC's slightly higher FND-trunc (82.50% vs 80.96%) and FCPA's lower FND-trunc (59.70%) are both asymmetric window artefacts from differing lifetimes. FCPA improved significantly in Run 024 (K_elec overhead fix: +34 rounds FND, +10.72pp PDR) making it a fairer baseline.
 
 ---
 
@@ -76,8 +77,8 @@ All-rounds PDR and FND-truncated PDR. Zero-PDR round count was removed from `run
 **`gamma_` not `gamma`.**
 `gamma` conflicts with a MATLAB builtin. The CHScore jamming-risk weight is `gamma_` everywhere.
 
-**Exact jammer position does not beat EWMA JR (Run 020/023).**
-FCPA has omniscient jammer geometry; proposed only estimates JR from experienced packet loss. Proposed wins by +30.42pp all-rounds PDR and +164 rounds FND (Run 023, 100-seed numbers). EWMA temporal memory + adaptive M_eff + sleep timer outweighs the information advantage of exact geometry.
+**Exact jammer position does not beat EWMA JR (Run 020/024).**
+FCPA has omniscient jammer geometry; proposed only estimates JR from experienced packet loss. Proposed wins by +19.70pp all-rounds PDR and +130 rounds FND (Run 024, 100-seed numbers, after K_elec fairness fix to FCPA). EWMA temporal memory + adaptive M_eff + sleep timer outweighs the information advantage of exact geometry even against a fairer FCPA baseline.
 
 **TBC energy convention: recv_packets/M not recv_packets (Run 019).**
 In `run_tbc.m`, per-hop TX/RX energy scales by `recv_packets/M` — a fraction ≤ 1. L=4000 bits is the total round payload represented by the M packet trials, same as all other schemes. Using raw `recv_packets` would charge 10× too much per hop.

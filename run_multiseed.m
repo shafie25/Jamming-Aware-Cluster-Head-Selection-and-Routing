@@ -59,7 +59,7 @@ for s = 1:n_seeds
 
     %% FCPA Baseline
     rf = run_fcpa(x, y, BS, J_x, J_y, ...
-        E0, T, M, p_CH, p_base, kappa, r_j, E_elec, E_amp, E_da, L, r_tx);
+        E0, T, M, K_elec, p_CH, p_base, kappa, r_j, E_elec, E_amp, E_da, L, r_tx);
     store.PDR.fcpa(s,:)    = rf.PDR;
     store.energy.fcpa(s,:) = rf.energy;
     store.delay.fcpa(s,:)  = rf.delay;
