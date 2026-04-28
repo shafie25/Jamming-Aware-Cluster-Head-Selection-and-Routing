@@ -103,35 +103,87 @@ paths are steered away from nodes with high jamming risk.
 
 \subsection{Related Work}
 
-Jamming detection in WSNs has been studied from multiple perspectives.
-Kiran et al.~\cite{9915936} apply an exponentially weighted moving
-average control chart to per-node signal-to-noise ratio measurements
-in a clustered WSN. Nodes whose smoothed SNR falls below a static lower
-control limit are flagged as jammed and removed from the network
-topology. This approach provides a detection signal but triggers no
-structural adaptation: no cluster head re-election, no routing cost
-revision, and no transmission rate adjustment, representing the minimum
-viable anti-jamming response and motivating the structural mechanisms
+Jamming attacks in WSNs span a broad and growing threat landscape.
+Pirayesh and Zeng~\cite{Pirayesh2022} survey constant, deceptive,
+random, reactive, and intelligent jamming across diverse radio
+technologies, documenting that mobile jammers---including UAV-mounted
+platforms capable of continuous orbital flight above a sensor
+field---represent an emerging threat category that static
+countermeasures cannot address. Herrera-Loera et al.~\cite{Herrera2026}
+provide an energy-centric taxonomy specifically for
+IEEE~802.15.4-based WSNs, demonstrating that beyond suppressing packet
+delivery, jamming forces nodes to expend transmission energy on packets
+that cannot survive the channel, directly accelerating network lifetime
+collapse. Together, these surveys establish that energy-aware responses
+are as critical as detection accuracy.
+
+Within the WSN clustering literature, Chu et al.~\cite{Chu2026} review
+two decades of LEACH-style protocol evolution, documenting that the
+original probabilistic CH election ignores channel quality and proximity
+to interference sources, leading to premature CH failure under
+adversarial conditions. These shortcomings motivate multi-criterion
+election approaches that integrate interference awareness alongside
+energy and topology metrics.
+
+Jamming detection in clustered WSNs has attracted lightweight
+metric-based solutions. Del-Valle-Soto et al.~\cite{DelValleSoto2021}
+evaluate per-node PDR, energy, and protocol overhead as low-cost
+jamming indicators across four cluster-based protocols (PEGASIS, TEEN,
+LEACH, HPAR), finding PDR to be the most discriminative single
+detection metric with minimal added energy cost. Kiran
+et al.~\cite{9915936} apply an EWMA control chart to per-node SNR in a
+clustered WSN: nodes whose smoothed SNR falls below a static lower
+control limit are flagged as jammed and removed from the topology. Both
+works provide a detection signal but trigger no structural
+adaptation---no CH re-election, no routing cost revision, and no
+transmission rate adjustment---representing the minimum viable
+anti-jamming response and motivating the layered structural mechanisms
 proposed in this paper.
 
+Beyond detection, structural responses to jamming differ in their
+information requirements and energy assumptions.
+Del-Valle-Soto et al.~\cite{DelValleSoto2025} propose joint
+MAC-layer adaptation and cluster reorganization for LoRa-BLE hybrid
+WSNs, combining protocol switching with re-clustering to restore
+delivery under jamming. While effective for multi-radio platforms, this
+approach assumes radio-layer reconfigurability unavailable in standard
+single-band WSN deployments. Lopez-Vilos et al.~\cite{s23156894}
+present a self-healing clustering scheme (FCPA) that uses exact jammer
+geometry via an interference-plus-noise (IPN) metric to gate CH
+candidacy and routes jammed members through cooperative relay paths.
+FCPA achieves strong per-round delivery ratios but its IPN gate resets
+each round with no memory of prior jamming, and its cooperative relay
+mechanism introduces additional energy overhead on relay nodes.
+
 Babitha et al.~\cite{11156845} propose a threshold-based countermeasure
-(TBC) for flat multi-hop WSNs in which each node monitors its per-round
-packet delivery ratio against a static threshold. Jammed nodes are
-excluded from routing paths with no clustering and no energy-aware
+(TBC) for flat multi-hop WSNs in which each node monitors its
+instantaneous per-round PDR against a static threshold. Jammed nodes
+are excluded from routing paths with no clustering and no energy-aware
 routing. While the detection logic is sound, the flat topology
 concentrates forwarding burden on relay nodes near the base station
 under the standard LEACH radio energy model, causing early network
 collapse.
 
-Lopez-Vilos et al.~\cite{s23156894} present a self-healing clustering
-scheme (FCPA) that uses exact jammer geometry via an
-interference-plus-noise (IPN) metric to gate cluster head candidacy and
-routes jammed members through cooperative relay paths. FCPA achieves
-strong per-round delivery ratios but its IPN gate resets every round
-with no memory of prior jamming, and its cooperative relay mechanism
-introduces additional energy overhead on relay nodes. In contrast to both baselines, the proposed scheme combines EWMA
-temporal smoothing with structural adaptation at both the election and
-transmission layers, requiring no jammer geometry information.
+Learning-based adaptation has also been explored for faster channel
+response. Zhou et al.~\cite{Zhou2023} propose an imitation-learning
+algorithm for WSNs that converges quickly to a jamming-avoidance
+channel-selection policy. Such approaches, however, require a
+centralized training phase and an offline policy generation step,
+limiting applicability in resource-constrained networks operating under
+continuous jamming from the first round of deployment.
+
+In contrast to detection-only
+approaches~\cite{DelValleSoto2021,9915936}, geometry-dependent
+baselines~\cite{s23156894}, flat-topology
+countermeasures~\cite{11156845}, and centralized learning
+methods~\cite{Zhou2023}, the proposed scheme combines EWMA temporal
+smoothing with structural adaptation at the election, transmission,
+and recovery layers---requiring no geometric jammer model. No prior
+work integrates all four mechanisms within a single geometry-free
+framework: EWMA-estimated jamming risk from observed packet outcomes,
+multi-criterion CH election steered away from jammed regions, adaptive
+burst size with sleep timer for energy conservation, and post-failure
+stranded-node relay for degradation-phase recovery.
 
 \subsection{Paper Contributions}
 
