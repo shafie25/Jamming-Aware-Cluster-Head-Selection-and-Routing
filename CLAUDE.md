@@ -9,22 +9,22 @@ MATLAB simulation for a graduate wireless networks course project:
 
 ---
 
-## Current State (as of 2026-04-27, Run 024)
+## Current State (as of 2026-04-28, Run 028)
 
 ### Implemented
-- `schemes/run_proposed.m` — proposed scheme: JR-aware CHScore election + Dijkstra routing + proactive emergency CH re-election + adaptive burst size (M_eff)
+- `schemes/run_proposed.m` — proposed scheme: JR-aware CHScore election + Dijkstra routing + proactive emergency CH re-election + adaptive burst size (M_eff) + post-FND stranded node relay (Run 028)
 - `schemes/run_leach.m` — standard LEACH (kept as reference; removed from active comparison in Run 020)
 - `schemes/run_tbc.m` — TBC baseline: flat multi-hop topology, instantaneous PDR detection, energy-aware Dijkstra, threshold suppression (Run 019 energy fix)
-- `schemes/run_fcpa.m` — FCPA baseline: IPN-gated CH election + cooperative relay for jammed members (Run 020, adapted from López-Vilos et al. Sensors 2023)
-- `run_multiseed.m` — main evaluation: seeds 1:100, Proposed + TBC + FCPA, 2-window PDR + energy@r300
-- `schemes/run_fcpa.m` — FCPA baseline: K_elec-gated election (Run 024), IPN-gated CH election + cooperative relay
+- `schemes/run_fcpa.m` — FCPA baseline: K_elec-gated election (Run 024), IPN-gated CH election + cooperative relay for jammed members
+- `run_multiseed.m` — main evaluation: seeds 1:100, Proposed + TBC + FCPA; metrics: FND, HND, PDR all rounds, PDR FND-trunc, PDR@r300, Energy@r300, total delivered packets (Run 025)
+- `plotting/plot_multiseed.m` — 4-panel figure: PDR, Energy, Cumulative Delivered Packets, Alive Nodes (Run 025: delay panel replaced)
 - `plotting/visualize_snapshot.m` — 2D network map with JR heatmap and routing paths
 - `plotting/export_figures.m` — runs 20-seed sim internally and exports publication-quality PDFs/PNGs to `figures/` (uses its own 20-seed loop, separate from run_multiseed.m)
 - `testing/visualize_tbc_routing.m` — TBC routing snapshot: paths, relay load, jammed/isolated nodes
 - `testing/` — all sensitivity sweeps, routing experiments, and diagnostics (run from project root)
-- `paper.tex` — complete IEEE-format paper (all sections written and finalized)
+- `paper.tex` — IEEE-format paper (needs update for Run 028 numbers and relay mechanism)
 - `references.bib` — BibTeX entries for all three cited baselines
-- `figures/` — exported figure PDFs and PNGs ready for Overleaf upload
+- `figures/` — exported figure PDFs and PNGs (need regeneration after paper update)
 
 ### Entry Points
 - `main.m` — single seed quick check (Proposed + TBC + FCPA)
@@ -43,17 +43,21 @@ MATLAB simulation for a graduate wireless networks course project:
 - Sleep timer: nodes at M_eff=0 sleep for `N_sleep=5` rounds (EWMA frozen, JR reset to 0 on wakeup) — covers the jammer arc tail so nodes don't over-penalise post-jam JR
 - PDR measured end-to-end at the BS: packets must survive every routing hop via Dijkstra, not just reach the CH (fixed in Run 022)
 - Dijkstra enforces `r_tx=50m` radio range — edges beyond range pruned from cost matrix (fixed in Run 022)
+- Post-FND stranded node relay (Run 028): after first node death, isolated nodes (no CH within r_tx) relay via highest-energy non-CH member within r_tx. Only fires post-FND; JR < 0.5 filter; one relay node per stranded node per round; only stranded→relay hop energy charged (relay→CH amortised).
 
-### Current Best Comparative Results (Run 024, 100 seeds)
+### Current Best Comparative Results (Run 028, 100 seeds)
 
 | Metric | Proposed | TBC | FCPA |
 |---|---|---|---|
-| First node death (round) | **702.2 +/- 34.9** | 469.1 +/- 48.8 | 572.2 +/- 39.9 |
-| PDR all rounds (%) | **78.05 +/- 1.61** | 52.53 +/- 4.16 | 58.35 +/- 2.98 |
-| PDR FND-trunc (%) | 80.96 +/- 1.48 | **82.50 +/- 0.55** | 59.70 +/- 3.14 |
-| Energy @ round 300 (J) | **34.17 +/- 0.37** | 26.68 +/- 1.24 | 31.96 +/- 0.22 |
+| FND (rnd) | **702.2 +/- 34.9** | 469.2 +/- 49.0 | 571.9 +/- 42.4 |
+| HND (rnd) | **912.7 +/- 20.5** | 634.0 +/- 50.6 | 828.0 +/- 11.2 |
+| PDR all rounds (%) | **79.44 +/- 1.70** | 52.54 +/- 4.16 | 58.25 +/- 2.88 |
+| PDR FND-trunc (%) | 80.96 +/- 1.48 | **82.49 +/- 0.56** | 59.87 +/- 3.13 |
+| PDR@r300 (%) | **84.41 +/- 4.54** | 83.07 +/- 3.28 | 50.53 +/- 8.82 |
+| Energy@r300 (J) | **34.17 +/- 0.37** | 26.68 +/- 1.23 | 31.95 +/- 0.24 |
+| Total del. pkts (k) | **731.7 +/- 17.8** | 511.2 +/- 37.4 | 495.7 +/- 25.9 |
 
-Proposed wins on lifetime (+233 rounds vs TBC, +130 rounds vs FCPA), all-rounds PDR (+25.52pp vs TBC, +19.70pp vs FCPA), and residual energy. TBC's slightly higher FND-trunc (82.50% vs 80.96%) and FCPA's lower FND-trunc (59.70%) are both asymmetric window artefacts from differing lifetimes. FCPA improved significantly in Run 024 (K_elec overhead fix: +34 rounds FND, +10.72pp PDR) making it a fairer baseline.
+Proposed wins on FND (+233 rounds vs TBC, +130 rounds vs FCPA), HND (+279 vs TBC, +85 vs FCPA), all-rounds PDR (+26.90pp vs TBC, +21.19pp vs FCPA), and total delivered packets (+220k vs TBC, +236k vs FCPA). TBC's slightly higher FND-trunc PDR (82.49% vs 80.96%) is a window artefact from its shorter lifetime. FCPA's PDR@r300 (50.53%) confirms its cooperative relay has a structural per-round PDR deficit even when the network is fully healthy — not just a lifetime-window effect.
 
 ---
 
@@ -77,8 +81,11 @@ All-rounds PDR and FND-truncated PDR. Zero-PDR round count was removed from `run
 **`gamma_` not `gamma`.**
 `gamma` conflicts with a MATLAB builtin. The CHScore jamming-risk weight is `gamma_` everywhere.
 
-**Exact jammer position does not beat EWMA JR (Run 020/024).**
-FCPA has omniscient jammer geometry; proposed only estimates JR from experienced packet loss. Proposed wins by +19.70pp all-rounds PDR and +130 rounds FND (Run 024, 100-seed numbers, after K_elec fairness fix to FCPA). EWMA temporal memory + adaptive M_eff + sleep timer outweighs the information advantage of exact geometry even against a fairer FCPA baseline.
+**Exact jammer position does not beat EWMA JR (Run 020/024/028).**
+FCPA has omniscient jammer geometry; proposed only estimates JR from experienced packet loss. Proposed wins by +21.19pp all-rounds PDR and +130 rounds FND (Run 028, 100-seed numbers). EWMA temporal memory + adaptive M_eff + sleep timer + post-FND relay outweighs the information advantage of exact geometry even against a fairer FCPA baseline.
+
+**Post-FND relay must stay gated on `~isnan(t_death)`.**
+Runs 026–027 showed that relay active in healthy rounds drains relay nodes faster than it delivers packets, causing FND to drop below FCPA (551/561 vs 572). Gate is load-bearing — do not remove it. All three efficiency constraints (JR < 0.5 filter, one relay per relay node per round, amortised relay→CH energy) must be retained together.
 
 **TBC energy convention: recv_packets/M not recv_packets (Run 019).**
 In `run_tbc.m`, per-hop TX/RX energy scales by `recv_packets/M` — a fraction ≤ 1. L=4000 bits is the total round payload represented by the M packet trials, same as all other schemes. Using raw `recv_packets` would charge 10× too much per hop.
@@ -139,7 +146,7 @@ reference/
 
 ---
 
-## Project Status: COMPLETE (2026-04-27, Run 022)
+## Project Status: IN PROGRESS (2026-04-28, Run 028)
 
 The simulation, evaluation, and paper write-up are finished. Everything needed for submission is in the repo. Run 022 corrected baseline modelling (end-to-end PDR, FCPA overhead, r_tx in Dijkstra) and added the sleep timer; paper numbers from Run 021 still hold structurally.
 

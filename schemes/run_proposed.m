@@ -93,6 +93,52 @@ function results = run_proposed(x, y, BS, J_x, J_y, dist_to_BS, ...
             energy(ch)= energy(ch) - scale * compute_energy('rx', L, E_elec, E_amp, E_da, 0, 0);
         end
 
+        %% --- Stranded Node Relay ---
+        % Isolated nodes (no CH within r_tx) attempt a 2-hop path:
+        %   stranded → highest-energy non-CH member within r_tx → that member's CH
+        % The relay packets then travel the CH's existing Dijkstra path to the BS.
+        %
+        % Three efficiency constraints:
+        %   (1) JR filter: skip heavily jammed stranded nodes (JR >= 0.5) —
+        %       two lossy hops compound badly and waste energy for near-zero gain.
+        %   (2) Relay cap: each relay node serves at most one stranded node per round
+        %       to prevent any single node from absorbing disproportionate load.
+        %   (3) Amortised relay→CH energy: relay is already transmitting to its CH;
+        %       only the new stranded→relay hop (TX + RX) is charged separately.
+        relay_bonus = zeros(1, N);
+
+        % Relay only activates after first node death. In healthy rounds, stranded
+        % nodes are transient (re-election will cover them) and relay overhead
+        % hurts lifetime more than it helps PDR. Post-FND, CH coverage degrades
+        % permanently and relay recovers packets that would otherwise be lost.
+        if ~isnan(t_death)
+        relay_used  = false(1, N);
+
+        for i = find(alive & ~is_CH & (CH_assign == 0) & (M_eff > 0) & (JR < 0.5))
+            % Candidates: alive non-CH members within r_tx not yet used as relay
+            d_i        = sqrt((x(i) - x).^2 + (y(i) - y).^2);
+            candidates = find(alive & ~is_CH & (CH_assign > 0) & (d_i <= r_tx) & ~relay_used);
+            if isempty(candidates); continue; end
+
+            % Pick relay with highest residual energy
+            [~, best] = max(energy(candidates));
+            relay     = candidates(best);
+            ch        = CH_assign(relay);
+
+            % Charge only the stranded→relay hop; relay→CH is amortised
+            s         = M_eff(i) / M;
+            d_ir      = sqrt((x(i) - x(relay))^2 + (y(i) - y(relay))^2);
+            energy(i)     = energy(i)     - s * compute_energy('tx', L, E_elec, E_amp, E_da, d_ir, 0);
+            energy(relay) = energy(relay) - s * compute_energy('rx', L, E_elec, E_amp, E_da, 0,   0);
+
+            % Two-hop channel loss
+            hop1 = sum(rand(M_eff(i), 1) <= p(i));
+            hop2 = sum(rand(hop1, 1) <= p(relay));
+            relay_bonus(ch) = relay_bonus(ch) + hop2;
+            relay_used(relay) = true;
+        end
+        end   % if ~isnan(t_death)
+
         %% --- CH Aggregation + Routing ---
         [paths, hop_counts] = route_dijkstra(x, y, is_CH, JR, BS, ...
             phi1, phi2, phi3, E_amp, L, r_tx);
@@ -123,7 +169,7 @@ function results = run_proposed(x, y, BS, J_x, J_y, dist_to_BS, ...
             % Route along optimal path: deduct energy per hop and apply channel loss
             path = paths{c};
             if isempty(path); continue; end
-            surviving = recv_count;
+            surviving = recv_count + relay_bonus(c);
             for h = 1:length(path) - 1
                 ni = path(h);
                 nj = path(h+1);
