@@ -522,8 +522,7 @@ $\mathrm{emergency} \leftarrow \mathrm{false}$\;
     \For{each member $s_i \notin \mathcal{C}(t)$}{
 
         $M_{\mathrm{eff},i}(t) \leftarrow
-            \max\!\left(M_{\min},\;
-            \left\lfloor M\left(1 - JR_i(t)\right)\right\rfloor\right)$
+            \mathrm{round}\!\left(M\left(1 - JR_i(t)\right)\right)$
             \tcp*[r]{Eq.~(7)}
 
         Use $M_{\mathrm{eff},i}(t)$ packet trials toward CH,
@@ -838,6 +837,29 @@ exact jammer geometry knowledge: temporal smoothing prevents premature
 re-election of recently jammed nodes, adaptive burst size eliminates the
 relay energy overhead imposed by cooperative forwarding, and post-failure
 relay recovers stranded nodes without compromising lifetime.
+
+The key lessons from this work are threefold. First, geometry-free
+jamming estimation from observed packet outcomes is sufficient to
+outperform schemes with exact jammer knowledge, because temporal memory
+is more valuable than instantaneous geometric precision under a
+periodically orbiting jammer. Second, energy conservation through
+adaptive transmission is a stronger lifetime lever than routing
+optimisation alone: the adaptive burst-size mechanism is the primary
+driver of the 233-round FND advantage over TBC. Third, total delivered
+packets is a more informative single metric than per-round PDR averages
+because it captures both throughput quality and network lifetime in a
+single window-artefact-free number.
+
+The proposed scheme has several limitations that remain open. The CHScore
+weights ($\alpha, \beta, \gamma, \delta$) are fixed by manual tuning and
+may not generalise to deployments with substantially different node
+densities, jamming intensities, or orbit geometries. The post-failure
+relay assumes a sufficient density of non-CH members within radio range;
+in highly sparse or heavily depleted networks the relay pool may be empty,
+leaving stranded nodes unrecoverable. Finally, the scheme is evaluated on
+a single circular UAV orbit; irregular or multi-UAV trajectories
+introduce spatially correlated interference that the single-node EWMA
+does not model.
 
 Future work will investigate dynamic cluster head fraction scaling as the
 network shrinks in late-stage operation, sensitivity analysis across
