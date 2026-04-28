@@ -103,10 +103,17 @@ function [paths, hop_counts] = route_dijkstra(x, y, is_CH, JR, BS, ...
         end
         path_g = fliplr(path_g(1:path_len));
 
-        % Convert graph indices back to node indices
-        path_nodes = graph_nodes(path_g);
-        paths{src_node} = path_nodes;
-        hop_counts(src_node) = length(path_nodes) - 1;   % hops = nodes - 1
+        % If BS was unreachable, path won't start from the source node.
+        % Return empty path so the caller skips this CH rather than counting
+        % its packets as delivered with zero routing energy and zero loss.
+        if path_g(1) ~= src_g
+            paths{src_node} = [];
+            hop_counts(src_node) = 0;
+        else
+            path_nodes = graph_nodes(path_g);
+            paths{src_node} = path_nodes;
+            hop_counts(src_node) = length(path_nodes) - 1;
+        end
     end
 
 end

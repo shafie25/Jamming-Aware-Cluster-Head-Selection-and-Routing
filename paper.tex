@@ -50,12 +50,15 @@ sensors. We propose a jamming-aware cluster head selection and routing
 scheme that estimates per-node jamming risk solely from observed packet
 outcomes using an exponentially weighted moving average, requiring no
 geometric jammer model. The risk estimate drives a multi-criterion
-cluster head election, an adaptive burst-size mechanism that conserves
-energy under jamming, and a proactive emergency re-election trigger.
-Evaluated over 20 random topologies, the proposed scheme achieves
-85.11\% mean packet delivery ratio, outperforming geometry-aware and
-threshold-based baselines by 21.76 and 31.91 percentage points
-respectively, while extending first-node-death to round 705.
+cluster head election, an adaptive burst-size mechanism with sleep timer
+that conserves energy under jamming, a proactive emergency re-election
+trigger, and a post-failure stranded-node relay that recovers isolated
+nodes during the network degradation phase. Evaluated over 100 random
+topologies, the proposed scheme achieves 74.30\% mean packet delivery
+ratio, outperforming geometry-aware and threshold-based baselines by
+16.05 and 21.76 percentage points respectively, while extending
+first-node-death to round 702 and delivering 37\% more total packets
+than the threshold-based baseline.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -137,19 +140,25 @@ The contributions of this paper are:
     \item A multi-criterion CHScore election mechanism that jointly
     weights residual energy, neighbor connectivity, EWMA-estimated
     jamming risk, and distance to the sink, with a spatial exclusion
-    radius enforcing coverage spread and a proactive emergency re-election
-    that restores cluster head coverage within one round of any failure.
+    radius enforcing field-wide coverage spread and a proactive emergency
+    re-election that restores cluster head coverage within one round of
+    any CH failure.
     \item An adaptive burst-size mechanism that reduces each node's
     per-round transmissions proportionally to its EWMA jamming risk,
-    conserving up to 80 percent of transmission energy during heavy
-    jamming and extending first-node-death by 99 rounds compared to
-    fixed burst-size operation.
-    \item A comprehensive evaluation against two literature baselines
-    demonstrating that temporal EWMA learning and adaptive energy
-    management together outperform exact jammer geometry knowledge,
-    achieving a 21.76 percentage point all-round PDR improvement over
-    the geometry-aware FCPA baseline with zero communication blackouts
-    across all 20 evaluated topologies.
+    with a sleep timer that silences nodes at zero effective trials for
+    $N_{sleep}=5$ rounds to cover the jammer arc tail, conserving up to
+    100 percent of transmission energy during peak jamming.
+    \item A post-failure stranded-node relay that activates after the
+    first node death, forwarding isolated nodes' data through the
+    highest-energy available member within radio range, with a jamming
+    risk filter and per-relay-node load cap to prevent relay burnout.
+    \item A comprehensive 100-seed evaluation against two literature
+    baselines demonstrating that temporal EWMA learning and adaptive
+    energy management together outperform exact jammer geometry
+    knowledge, achieving a 16.05 percentage point all-round PDR
+    improvement over the geometry-aware baseline and delivering 37\%
+    more total packets than the flat-topology baseline, with zero
+    communication blackout rounds across all evaluated seeds.
 \end{itemize}
 
 \subsection{Paper Organization}
@@ -287,19 +296,19 @@ will not survive the channel. To conserve this energy without distorting
 the honest PDR ratio, each node adapts its per-round packet-trial count
 proportionally to its EWMA jamming risk:
 \begin{equation}
-    M_{\text{eff},i}(t) = \max\!\left(M_{\min},\;
-    \left\lfloor M \cdot \bigl(1 - JR_i(t)\bigr) \right\rfloor\right)
+    M_{\text{eff},i}(t) = \text{round}\!\left(M \cdot \bigl(1 - JR_i(t)\bigr)\right)
     \label{eq:meff}
 \end{equation}
-where $M = 10$ is the nominal packet-trial count used for PDR estimation
-and $M_{\min} = 2$ is the minimum floor that preserves enough samples for
-accurate JR estimation. At $JR_i = 1$ the node uses only
-$M_{\min} = 2$ packet trials, an 80 percent reduction in represented
-transmission load, while at $JR_i = 0$ the full $M = 10$ trial count is
-used. Transmission and reception energy costs scale
-proportionally by $M_{\text{eff},i}/M$, and the PDR denominator uses
-$M_{\text{eff},i}$ so that reduced transmissions are not credited as
-delivered packets.
+where $M = 10$ is the nominal packet-trial count. At $JR_i = 0$ the
+full $M = 10$ trials are used; at $JR_i = 1$ the count reaches zero.
+A node reaching $M_{\text{eff},i} = 0$ enters a sleep state for
+$N_{sleep} = 5$ rounds: its EWMA is frozen during sleep and its jamming
+risk is reset to zero on wakeup, covering the jammer arc tail and
+preventing over-penalisation of nodes after the UAV has passed.
+Transmission and reception energy costs scale proportionally by
+$M_{\text{eff},i}/M$, and the PDR denominator counts
+$M_{\text{eff},i}$ attempted trials so that silenced rounds are not
+credited as delivered packets.
 
 % -------------------------------------------------------
 \subsection{Jamming-Aware Cluster Head Selection}
@@ -393,6 +402,30 @@ algorithm on the weighted inter-cluster graph:
     \mathcal{P}^* = \underset{\mathcal{P}}{\arg\min}
     \sum_{(s_i,\, s_j) \in \mathcal{P}} C(s_i, s_j, t)
 \end{equation}
+
+% -------------------------------------------------------
+\subsection{Post-Failure Stranded-Node Relay}
+
+As nodes die, cluster head coverage fragments. Nodes beyond $r_{tx}$
+from every surviving CH become \textit{stranded}: their packet trials
+count as lost in the PDR denominator but contribute zero delivered
+packets. To recover this loss during the degradation phase, a 2-hop
+relay is activated after the first node death. For each stranded node
+$s_i$ with $JR_i < 0.5$ and $M_{\text{eff},i} > 0$, the relay selects
+the highest-residual-energy non-CH member $s_r$ within $r_{tx}$:
+\begin{equation}
+    s_r^* = \underset{s_r \in \mathcal{R}_i}{\arg\max}\; E_r(t)
+\end{equation}
+where $\mathcal{R}_i$ is the set of alive, non-CH, assigned members
+within $r_{tx}$ of $s_i$ not already serving as relay this round.
+Packets travel $s_i \to s_r^* \to CH(s_r^*) \to BS$, with energy
+charged only for the new $s_i \to s_r^*$ hop (TX at $s_i$, RX at
+$s_r^*$); the $s_r^* \to CH$ leg is amortised into $s_r^*$'s existing
+cluster communication. Three constraints prevent relay burnout: (1)
+the JR filter skips heavily jammed stranded nodes whose two-hop compound
+loss would waste energy; (2) each relay node serves at most one stranded
+node per round; (3) the relay is inactive before first node death, when
+stranded nodes are transient and relay overhead exceeds the delivery gain.
 
 % -------------------------------------------------------
 \subsection{Proposed Algorithm}
@@ -534,10 +567,11 @@ level of jamming-awareness in clustered WSNs.
 \subsection{Simulation Setup}
 
 All schemes are implemented in MATLAB and evaluated over $T = 1000$
-rounds for each of 20 independent random seeds (seeds 1 through 20),
+rounds for each of 100 independent random seeds (seeds 1 through 100),
 with each seed producing a distinct random node deployment while the UAV
 trajectory is fixed. Reported values are mean and standard deviation
-across all 20 seeds. Both baselines (TBC and FCPA) are fully implemented in MATLAB.
+across all 100 seeds. Both baselines (TBC and FCPA) are fully
+implemented in MATLAB.
 Table~\ref{tab:params} lists all simulation parameters, kept identical
 across all schemes to ensure fair comparison.
 
@@ -558,7 +592,7 @@ Simulation rounds     & $T$                          & 1000          \\
 CH target fraction    & $p_{CH}$                     & 0.05          \\
 Re-election interval  & $K_{elec}$                   & 5 rounds      \\
 PDR trial count       & $M$                          & 10 trials     \\
-Min. trial count      & $M_{\min}$                   & 2 trials      \\
+Sleep timer           & $N_{sleep}$                  & 5 rounds      \\
 TX range limit        & $r_{tx}$                     & 50 m          \\
 EWMA constant         & $\lambda$                    & 0.6           \\
 \midrule
@@ -582,14 +616,16 @@ Routing weights       & $\phi_1,\phi_2,\phi_3$      & $5{\times}10^{-4}$,\,1,\,$
 \subsection{Results}
 
 Table~\ref{tab:results} presents the comparative results for the
-proposed scheme against TBC and FCPA.
-Two PDR windows are reported: all-rounds PDR captures full-lifecycle
-delivery performance, while first-node-death truncated (FND-trunc) PDR
-isolates protocol performance during healthy network operation,
-independent of late-stage collapse effects.
+proposed scheme against TBC and FCPA across 100 seeds.
+Three PDR windows are reported: all-rounds PDR captures full-lifecycle
+delivery; FND-truncated PDR isolates the operational window before any
+node death; PDR at round 300 provides a window-artefact-free snapshot
+when all three networks are fully alive. Total delivered packets
+(cumulative sum of $PDR(t)\!\times\!N_{alive}(t)\!\times\!M$ over all
+rounds) integrates throughput and lifetime simultaneously.
 
 \begin{table}[!t]
-\caption{Comparative Simulation Results (20 Seeds, $\kappa = 10$)}
+\caption{Comparative Simulation Results (100 Seeds, $\kappa = 10$)}
 \label{tab:results}
 \renewcommand{\arraystretch}{1.2}
 \centering
@@ -598,23 +634,37 @@ independent of late-stage collapse effects.
 \textbf{Metric} & \textbf{Proposed} & \textbf{TBC}~\cite{11156845}
                 & \textbf{FCPA}~\cite{s23156894} \\
 \midrule
+FND (round)
+  & \textbf{702.2 $\pm$ 34.9}
+  & 469.2 $\pm$ 49.0
+  & 571.9 $\pm$ 42.4 \\
+HND (round)
+  & \textbf{912.7 $\pm$ 20.5}
+  & 634.0 $\pm$ 50.6
+  & 828.0 $\pm$ 11.2 \\
 PDR, all rounds (\%)
-  & \textbf{85.11 $\pm$ 2.02}
-  & 53.20 $\pm$ 4.41
-  & 63.35 $\pm$ 0.89 \\
+  & \textbf{74.30 $\pm$ 5.16}
+  & 52.54 $\pm$ 4.16
+  & 58.25 $\pm$ 2.88 \\
 PDR, FND-trunc (\%)
-  & \textbf{88.77 $\pm$ 1.42}
-  & 82.42 $\pm$ 0.58
-  & 75.07 $\pm$ 1.44 \\
-First node death (round)
-  & \textbf{704.7 $\pm$ 33.1}
-  & 459.1 $\pm$ 41.3
-  & 542.1 $\pm$ 19.2 \\
+  & 78.24 $\pm$ 3.88
+  & \textbf{82.49 $\pm$ 0.56}
+  & 59.87 $\pm$ 3.13 \\
+PDR @ round 300 (\%)
+  & 82.13 $\pm$ 7.56
+  & 83.07 $\pm$ 3.28
+  & \textbf{50.53 $\pm$ 8.82}$^{\dagger}$ \\
 Residual energy @ r300 (J)
-  & \textbf{33.95 $\pm$ 0.41}
-  & 26.80 $\pm$ 1.12
-  & 30.20 $\pm$ 0.26 \\
+  & \textbf{34.17 $\pm$ 0.37}
+  & 26.68 $\pm$ 1.23
+  & 31.95 $\pm$ 0.24 \\
+Total del.\ pkts (thousands)
+  & \textbf{697.1 $\pm$ 42.4}
+  & 511.2 $\pm$ 37.4
+  & 495.7 $\pm$ 25.9 \\
 \bottomrule
+\multicolumn{4}{l}{$^{\dagger}$FCPA cooperative relay incurs 2-hop compound loss}\\
+\multicolumn{4}{l}{\quad even when the network is fully alive.}\\
 \end{tabular}
 \end{table}
 
@@ -628,57 +678,85 @@ simulation (mean $\pm$ one standard deviation).
     \centerline{\includegraphics[width=\columnwidth]{figures/fig_energy.png}}
     \vspace{2pt}
     \centerline{\includegraphics[width=\columnwidth]{figures/fig_alive.png}}
-    \caption{Per-round results averaged over 20 seeds (shaded bands:
-    $\pm 1\,\sigma$). Top: Packet Delivery Ratio. Middle: Total Residual
-    Network Energy. Bottom: Alive Node Count.}
+    \vspace{2pt}
+    \centerline{\includegraphics[width=\columnwidth]{figures/fig_cum_pkts.png}}
+    \caption{Per-round results averaged over 100 seeds (shaded bands:
+    $\pm 1\,\sigma$). From top: Packet Delivery Ratio; Total Residual
+    Network Energy; Alive Node Count; Cumulative Delivered Packets
+    (curves plateau when each scheme's network dies---the vertical gap
+    at round 1000 reflects total throughput advantage).}
     \label{fig:results}
 \end{figure}
 
 \subsection{Discussion}
 
-\subsubsection{PDR Advantage}
-The proposed scheme achieves 85.11\% all-round PDR, outperforming FCPA
-by 21.76 percentage points and TBC by 31.91 percentage points. The
-FND-truncated PDR gap between the proposed scheme and FCPA widens to
-13.70 percentage points (88.77\% vs.\ 75.07\%), confirming that the
-advantage is not an artifact of differential mortality timing but a
-genuine per-round improvement sustained throughout the operational
-period. The proposed scheme maintains zero communication blackout rounds
-across all 20 evaluated seeds.
+\subsubsection{Total Throughput and Lifetime}
+The proposed scheme delivers 697,100 total packets across the full
+simulation lifetime, compared to 511,200 for TBC (+36\%) and 495,700
+for FCPA (+40\%). This metric integrates per-round delivery quality
+and network lifetime simultaneously, making it robust to the window
+selection effects that affect per-round PDR averages. Fig.~\ref{fig:results}
+(bottom) visualises this directly: cumulative packet curves plateau when
+each network dies, and the vertical gap at round 1000 reflects the total
+throughput advantage. The proposed scheme's curve continues rising until
+round~912 (HND), 279 rounds beyond TBC and 85 rounds beyond FCPA.
+
+\subsubsection{PDR Windows and the Lifetime Artefact}
+The proposed scheme achieves 74.30\% all-rounds PDR, outperforming TBC
+by 21.76 percentage points and FCPA by 16.05 percentage points.
+TBC's FND-truncated PDR (82.49\%) exceeds the proposed scheme's
+(78.24\%) because TBC dies at round 469, confining its measurement
+window to the healthy early phase before significant network
+fragmentation. The proposed scheme's window extends to round 702,
+capturing 233 additional rounds of increasingly degraded late-network
+operation. The round-300 snapshot---when all three networks are fully
+alive---shows proposed (82.13\%) and TBC (83.07\%) deliver statistically
+equivalent per-round PDR in healthy operation; the all-rounds advantage
+of the proposed scheme arises from living 233 rounds longer, not from
+superior per-round delivery during the common lifetime. FCPA's PDR at
+round 300 (50.53\%) confirms its cooperative relay creates a structural
+per-round deficit even when the network is healthy, driven by two-hop
+compound loss on jammed members. The proposed scheme maintains zero
+communication blackout rounds across all 100 evaluated seeds.
 
 \subsubsection{Temporal Memory Outperforms Exact Geometry}
-FCPA holds an information advantage over the proposed scheme: it knows
-the exact jammer position every round and uses it to gate cluster head
-candidacy. The proposed scheme has no jammer model, estimating channel
-quality solely from observed packet outcomes. Despite this asymmetry,
-the proposed scheme outperforms FCPA on every metric. Two mechanisms
-explain this. First, EWMA smoothing prevents immediately re-electing a
-CH that just experienced jamming, providing beneficial memory as the
-UAV continues along its orbit. FCPA's IPN gate resets each round,
-immediately re-eligibilizing nodes the UAV may revisit within a few
-rounds. Second, adaptive burst size $M_{\text{eff}}$ avoids the
-cooperative relay overhead that FCPA imposes on relay nodes, retaining
-an additional 3.75 J of network energy by round 300 compared to FCPA.
+FCPA holds a structural information advantage: it knows the exact jammer
+position every round and uses it to gate cluster head candidacy.
+The proposed scheme has no jammer model, estimating channel quality
+solely from observed packet outcomes. Despite this asymmetry, the
+proposed scheme outperforms FCPA on every metric. EWMA smoothing
+provides beneficial memory as the UAV continues along its orbit,
+preventing immediate re-election of a CH that just experienced jamming.
+FCPA's binary IPN gate resets each round with no memory, creating
+the sharp oscillation visible in Fig.~\ref{fig:results} (top, green
+curve): each UAV orbit pass switches jammed members between direct
+transmission and two-hop cooperative relay, producing periodic PDR dips
+that average to 50.53\% at round~300. Second, adaptive burst size
+$M_{\text{eff}}$ avoids the cooperative relay overhead that FCPA
+imposes on relay nodes, retaining 2.22~J more network energy at
+round~300 compared to FCPA.
 
 \subsubsection{Clustering is Essential Under the LEACH Energy Model}
 TBC's flat topology validates the clustering premise directly. Without
 cluster head aggregation, every alive node routes up to $M$ packet trials
 individually toward the sink through multi-hop relay chains. Relay nodes
 near the sink accumulate forwarding load proportional to the entire
-upstream sub-network and exhaust their budgets within approximately 459
-rounds. This demonstrates that threshold-based jamming detection alone
-is insufficient: energy-efficient topology management through clustering
+upstream sub-network and exhaust their budgets by round~469 on average.
+This demonstrates that threshold-based jamming detection alone is
+insufficient: energy-efficient topology management through clustering
 is a prerequisite for long-lived anti-jamming WSN operation.
 
 \subsubsection{Energy and Lifetime}
-Fig.~\ref{fig:results} (middle) shows the proposed scheme retains
-33.95 J of total network energy at round 300, 27\% more than TBC and
-12\% more than FCPA. Fig.~\ref{fig:results} (bottom) shows all 100
-nodes alive through approximately round 650 for the proposed scheme,
-compared to approximately rounds 450 and 480 for TBC and FCPA
-respectively. The adaptive burst size is the primary driver: jammed
-nodes that would otherwise drain sending futile packets instead conserve
-that energy for subsequent healthy rounds.
+The proposed scheme retains 34.17~J of total network energy at
+round~300, 28\% more than TBC (26.68~J) and 7\% more than FCPA
+(31.95~J). All 100 nodes remain alive through approximately round~700
+for the proposed scheme, compared to rounds~469 and~572 for TBC and
+FCPA respectively. The adaptive burst size is the primary lifetime
+driver: jammed nodes that would otherwise drain sending futile packets
+instead conserve energy for subsequent unjammed rounds. The post-FND
+stranded-node relay contributes a further 1.39 percentage point gain in
+all-rounds PDR by recovering isolated nodes during the degradation
+phase, with no impact on pre-FND metrics.
 
 \FloatBarrier
 \section{Conclusion}
@@ -689,20 +767,25 @@ scheme for wireless sensor networks under continuous UAV-based
 interference. The proposed scheme requires no knowledge of the jammer's
 position or trajectory; instead it estimates per-node jamming risk from
 locally observed packet delivery outcomes using an exponentially weighted
-moving average. Three interconnected mechanisms translate this estimate
+moving average. Four interconnected mechanisms translate this estimate
 into structural adaptation: a multi-criterion CHScore election that
-steers candidacy away from jammed regions, an adaptive burst-size
-mechanism that reduces per-node transmissions proportionally to estimated
-jamming risk, and a proactive emergency re-election that restores cluster
-head coverage within one round of any failure. Evaluated over 20 random
+steers candidacy away from jammed regions; an adaptive burst-size
+mechanism with sleep timer that reduces per-node transmissions
+proportionally to estimated jamming risk; a proactive emergency
+re-election that restores cluster head coverage within one round of any
+failure; and a post-failure stranded-node relay that recovers isolated
+nodes during the network degradation phase. Evaluated over 100 random
 topologies against a threshold-based flat-topology baseline and a
 geometry-aware cooperative relay baseline, the proposed scheme achieves
-85.11\% mean packet delivery ratio with zero communication blackout
-rounds and first-node-death at round 705. The result demonstrates that
+74.30\% mean all-rounds packet delivery ratio with zero communication
+blackout rounds, first-node-death at round 702, and 697,100 total
+delivered packets---37\% more than the flat-topology baseline and 40\%
+more than the geometry-aware baseline. The results demonstrate that
 EWMA temporal learning and adaptive energy management together outperform
 exact jammer geometry knowledge: temporal smoothing prevents premature
-re-election of recently jammed nodes, while adaptive burst size eliminates
-the relay energy overhead imposed by cooperative forwarding approaches.
+re-election of recently jammed nodes, adaptive burst size eliminates the
+relay energy overhead imposed by cooperative forwarding, and post-failure
+relay recovers stranded nodes without compromising lifetime.
 
 Future work will investigate dynamic cluster head fraction scaling as the
 network shrinks in late-stage operation, sensitivity analysis across

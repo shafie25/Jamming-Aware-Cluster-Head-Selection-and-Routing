@@ -16,9 +16,9 @@ fig_dir = fullfile(pwd, 'figures');
 if ~exist(fig_dir, 'dir'); mkdir(fig_dir); end
 
 %% ---- Run simulation ----
-fprintf('Running 20-seed simulation (Proposed vs TBC vs FCPA)...\n');
+fprintf('Running 100-seed simulation (Proposed vs TBC vs FCPA)...\n');
 
-seeds     = 1:20;
+seeds     = 1:100;
 n_seeds   = length(seeds);
 n_schemes = 3;
 config;
@@ -55,7 +55,7 @@ for s = 1:n_seeds
     store.alive.tbc(s,:) = rt.alive;
     tdeath(s,2) = rt.t_death;
 
-    rf = run_fcpa(x, y, BS, J_x, J_y, E0, T, M, p_CH, p_base, kappa, r_j, E_elec, E_amp, E_da, L, r_tx);
+    rf = run_fcpa(x, y, BS, J_x, J_y, E0, T, M, K_elec, p_CH, p_base, kappa, r_j, E_elec, E_amp, E_da, L, r_tx);
     store.PDR.fcpa(s,:) = rf.PDR;
     store.energy.fcpa(s,:) = rf.energy;
     store.delay.fcpa(s,:) = rf.delay;
@@ -75,6 +75,17 @@ for k = 1:n_schemes
     ms{k}.alive_mean  = mean(store.alive.(fd),  1);
     ms{k}.alive_std   = std( store.alive.(fd), 0, 1);
     ms{k}.label       = scheme_names{k};
+end
+
+% Cumulative delivered packets per scheme
+for k = 1:n_schemes
+    fd = scheme_fields{k};
+    tpd_all = zeros(n_seeds, T);
+    for s = 1:n_seeds
+        tpd_all(s,:) = cumsum(store.PDR.(fd)(s,:) .* store.alive.(fd)(s,:)) * M;
+    end
+    ms{k}.cum_pkts_mean = mean(tpd_all, 1);
+    ms{k}.cum_pkts_std  = std( tpd_all, 0, 1);
 end
 
 fprintf('Simulation complete. Generating figures...\n');
@@ -189,5 +200,27 @@ legend(ax, 'Location', 'southwest', 'FontSize', fs_leg, 'Box', 'on');
 grid(ax, 'on'); xlim(ax, [1 T]); ylim(ax, [0 100]);
 style_axes(ax, fs_ax);
 save_fig(f3, 'fig_alive', fig_dir, fig_w, fig_h);
+
+%% ---- Fig 4: Cumulative Delivered Packets vs Round ----
+f4 = figure('Color', 'w');
+ax = axes(f4); hold(ax, 'on');
+for s = 1:n_schemes
+    r = ms{s}; c = colors{s};
+    upper = r.cum_pkts_mean + r.cum_pkts_std;
+    lower = max(r.cum_pkts_mean - r.cum_pkts_std, 0);
+    fill([rounds, fliplr(rounds)], [upper, fliplr(lower)], ...
+        c, 'FaceAlpha', 0.13, 'EdgeColor', 'none', ...
+        'HandleVisibility', 'off', 'Parent', ax);
+    plot(ax, rounds, r.cum_pkts_mean, 'Color', c, 'LineWidth', lw, ...
+        'DisplayName', r.label);
+end
+xlabel(ax, 'Round',              'Interpreter', 'latex');
+ylabel(ax, 'Cumulative Packets', 'Interpreter', 'latex');
+title(ax,  'Cumulative Delivered Packets ($\pm 1\sigma$)', ...
+    'Interpreter', 'latex', 'FontWeight', 'bold');
+legend(ax, 'Location', 'northwest', 'FontSize', fs_leg, 'Box', 'on');
+grid(ax, 'on'); xlim(ax, [1 T]);
+style_axes(ax, fs_ax);
+save_fig(f4, 'fig_cum_pkts', fig_dir, fig_w, fig_h);
 
 fprintf('\nAll figures saved to: %s\n', fig_dir);
