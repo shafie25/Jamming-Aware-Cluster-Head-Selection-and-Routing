@@ -9,22 +9,22 @@ MATLAB simulation for a graduate wireless networks course project:
 
 ---
 
-## Current State (as of 2026-04-28, Run 028)
+## Current State (as of 2026-04-30, Run 029)
 
 ### Implemented
 - `schemes/run_proposed.m` — proposed scheme: JR-aware CHScore election + Dijkstra routing + proactive emergency CH re-election + adaptive burst size (M_eff) + post-FND stranded node relay (Run 028)
 - `schemes/run_leach.m` — standard LEACH (kept as reference; removed from active comparison in Run 020)
 - `schemes/run_tbc.m` — TBC baseline: flat multi-hop topology, instantaneous PDR detection, energy-aware Dijkstra, threshold suppression (Run 019 energy fix)
-- `schemes/run_fcpa.m` — FCPA baseline: K_elec-gated election (Run 024), IPN-gated CH election + cooperative relay for jammed members
+- `schemes/run_fcpa.m` — FCPA baseline: K_elec-gated election (Run 024), IPN-gated CH election + cooperative relay for jammed members; CH→BS TX energy + PDR gated on r_tx (Run 029 bug fix)
 - `run_multiseed.m` — main evaluation: seeds 1:100, Proposed + TBC + FCPA; metrics: FND, HND, PDR all rounds, PDR FND-trunc, PDR@r300, Energy@r300, total delivered packets (Run 025)
 - `plotting/plot_multiseed.m` — 4-panel figure: PDR, Energy, Cumulative Delivered Packets, Alive Nodes (Run 025: delay panel replaced)
 - `plotting/visualize_snapshot.m` — 2D network map with JR heatmap and routing paths
-- `plotting/export_figures.m` — runs 20-seed sim internally and exports publication-quality PDFs/PNGs to `figures/` (uses its own 20-seed loop, separate from run_multiseed.m)
+- `plotting/export_figures.m` — runs 100-seed sim internally and exports publication-quality PDFs/PNGs to `figures/`
 - `testing/visualize_tbc_routing.m` — TBC routing snapshot: paths, relay load, jammed/isolated nodes
 - `testing/` — all sensitivity sweeps, routing experiments, and diagnostics (run from project root)
-- `paper.tex` — IEEE-format paper (needs update for Run 028 numbers and relay mechanism)
+- `paper.tex` — IEEE-format paper (numbers current as of Run 029; FCPA rows need updating)
 - `references.bib` — BibTeX entries for all three cited baselines
-- `figures/` — exported figure PDFs and PNGs (need regeneration after paper update)
+- `figures/` — exported figure PDFs and PNGs (regenerated after Run 029)
 
 ### Entry Points
 - `main.m` — single seed quick check (Proposed + TBC + FCPA)
@@ -45,19 +45,19 @@ MATLAB simulation for a graduate wireless networks course project:
 - Dijkstra enforces `r_tx=50m` radio range — edges beyond range pruned from cost matrix (fixed in Run 022)
 - Post-FND stranded node relay (Run 028): after first node death, isolated nodes (no CH within r_tx) relay via highest-energy non-CH member within r_tx. Only fires post-FND; JR < 0.5 filter; one relay node per stranded node per round; only stranded→relay hop energy charged (relay→CH amortised).
 
-### Current Best Comparative Results (Run 028, 100 seeds)
+### Current Best Comparative Results (Run 029, 100 seeds)
 
 | Metric | Proposed | TBC | FCPA |
 |---|---|---|---|
-| FND (rnd) | **702.2 +/- 34.9** | 469.2 +/- 49.0 | 571.9 +/- 42.4 |
-| HND (rnd) | **912.7 +/- 20.5** | 634.0 +/- 50.6 | 828.0 +/- 11.2 |
-| PDR all rounds (%) | **79.44 +/- 1.70** | 52.54 +/- 4.16 | 58.25 +/- 2.88 |
-| PDR FND-trunc (%) | 80.96 +/- 1.48 | **82.49 +/- 0.56** | 59.87 +/- 3.13 |
-| PDR@r300 (%) | **84.41 +/- 4.54** | 83.07 +/- 3.28 | 50.53 +/- 8.82 |
-| Energy@r300 (J) | **34.17 +/- 0.37** | 26.68 +/- 1.23 | 31.95 +/- 0.24 |
-| Total del. pkts (k) | **731.7 +/- 17.8** | 511.2 +/- 37.4 | 495.7 +/- 25.9 |
+| FND (rnd) | **702.2 +/- 34.9** | 469.2 +/- 49.0 | 593.2 +/- 52.9 |
+| HND (rnd) | **912.7 +/- 20.5** | 634.0 +/- 50.6 | 879.1 +/- 17.3 |
+| PDR all rounds (%) | **74.30 +/- 5.16** | 52.54 +/- 4.16 | 54.12 +/- 3.24 |
+| PDR FND-trunc (%) | 78.24 +/- 3.88 | **82.49 +/- 0.56** | 59.89 +/- 3.13 |
+| PDR@r300 (%) | 82.13 +/- 7.56 | **83.07 +/- 3.28** | 50.53 +/- 8.82 |
+| Energy@r300 (J) | **34.17 +/- 0.37** | 26.68 +/- 1.23 | 33.11 +/- 0.31 |
+| Total del. pkts (k) | **697.1 +/- 42.4** | 511.2 +/- 37.4 | 499.7 +/- 26.3 |
 
-Proposed wins on FND (+233 rounds vs TBC, +130 rounds vs FCPA), HND (+279 vs TBC, +85 vs FCPA), all-rounds PDR (+26.90pp vs TBC, +21.19pp vs FCPA), and total delivered packets (+220k vs TBC, +236k vs FCPA). TBC's slightly higher FND-trunc PDR (82.49% vs 80.96%) is a window artefact from its shorter lifetime. FCPA's PDR@r300 (50.53%) confirms its cooperative relay has a structural per-round PDR deficit even when the network is fully healthy — not just a lifetime-window effect.
+Proposed wins on FND (+233 rounds vs TBC, +109 rounds vs FCPA), HND (+279 vs TBC, +34 vs FCPA), all-rounds PDR (+21.76pp vs TBC, +20.18pp vs FCPA), and total delivered packets (+186k vs TBC, +197k vs FCPA). TBC's slightly higher FND-trunc PDR (82.49% vs 78.24%) is a window artefact from its shorter lifetime. FCPA's PDR@r300 (50.53%) confirms its cooperative relay has a structural per-round PDR deficit even when the network is fully healthy — not just a lifetime-window effect. FCPA's lower all-rounds PDR (54.12%) vs Run 028 (58.25%) is because the Run 029 energy bug fix lets FCPA live longer (+21 rounds FND, +51 rounds HND), exposing more degraded late-network rounds in the window average.
 
 ---
 

@@ -82,7 +82,7 @@ for k = 1:n_schemes
     fd = scheme_fields{k};
     tpd_all = zeros(n_seeds, T);
     for s = 1:n_seeds
-        tpd_all(s,:) = cumsum(store.PDR.(fd)(s,:) .* store.alive.(fd)(s,:)) * M;
+        tpd_all(s,:) = cumsum(store.PDR.(fd)(s,:) .* store.alive.(fd)(s,:)) * M / 1000;
     end
     ms{k}.cum_pkts_mean = mean(tpd_all, 1);
     ms{k}.cum_pkts_std  = std( tpd_all, 0, 1);
@@ -128,11 +128,17 @@ function save_fig(fig, fname, fig_dir, fig_w, fig_h)
     set(fig, 'Color', 'w');
     set(fig, 'Units',      'centimeters', 'Position',  [2 2 fig_w fig_h]);
     set(fig, 'PaperUnits', 'centimeters', 'PaperSize', [fig_w fig_h]);
+    drawnow;
     pdf_path = fullfile(fig_dir, [fname '.pdf']);
     png_path = fullfile(fig_dir, [fname '.png']);
-    exportgraphics(fig, pdf_path, 'ContentType', 'vector',  'BackgroundColor', 'white');
-    exportgraphics(fig, png_path, 'Resolution',  300,        'BackgroundColor', 'white');
+    exportgraphics(fig, pdf_path, 'ContentType', 'vector', 'BackgroundColor', 'white');
     fprintf('  Saved: %s\n', pdf_path);
+    drawnow;
+    try
+        exportgraphics(fig, png_path, 'Resolution', 300, 'BackgroundColor', 'white');
+    catch ME
+        warning('PNG export failed for %s: %s', fname, ME.message);
+    end
 end
 
 %% ---- Fig 1: PDR vs Round ----
@@ -215,7 +221,7 @@ for s = 1:n_schemes
         'DisplayName', r.label);
 end
 xlabel(ax, 'Round',              'Interpreter', 'latex');
-ylabel(ax, 'Cumulative Packets', 'Interpreter', 'latex');
+ylabel(ax, 'Cumulative Packets (thousands)', 'Interpreter', 'latex');
 title(ax,  'Cumulative Delivered Packets ($\pm 1\sigma$)', ...
     'Interpreter', 'latex', 'FontWeight', 'bold');
 legend(ax, 'Location', 'northwest', 'FontSize', fs_leg, 'Box', 'on');

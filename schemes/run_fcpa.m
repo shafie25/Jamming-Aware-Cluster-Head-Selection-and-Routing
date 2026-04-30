@@ -203,14 +203,15 @@ function results = run_fcpa(x, y, BS, J_x, J_y, E0, T, M, K_elec, ...
                 n_routed   = n_routed + 1;
             end
 
-            %% CH→BS: gate PDR on radio range, charge TX energy regardless
-            if ch_recv > 0 && dist_to_BS(c) <= r_tx
-                total_recv = total_recv + sum(rand(ch_recv, 1) <= p(c));
-            end
-
+            %% CH→BS: aggregation always charged; TX and PDR gated on radio range
             n_members_c     = length(members_all);
             energy_delta(c) = energy_delta(c) - compute_energy('agg', L, E_elec, E_amp, E_da, 0, n_members_c);
-            energy_delta(c) = energy_delta(c) - compute_energy('tx',  L, E_elec, E_amp, E_da, dist_to_BS(c), 0);
+            if dist_to_BS(c) <= r_tx
+                if ch_recv > 0
+                    total_recv = total_recv + sum(rand(ch_recv, 1) <= p(c));
+                end
+                energy_delta(c) = energy_delta(c) - compute_energy('tx', L, E_elec, E_amp, E_da, dist_to_BS(c), 0);
+            end
         end
 
         %% --- Stranded nodes: count M packet trials as lost ---

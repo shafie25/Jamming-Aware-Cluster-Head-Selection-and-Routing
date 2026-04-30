@@ -90,6 +90,6 @@ function plot_multiseed(results_all, T)
     title('Network Lifetime (mean \pm std)');
     legend('Location', 'southwest', 'FontSize', 8); grid on;
 
-    sgtitle('Jamming-Aware WSN Simulation — 20-Seed Average (Proposed vs TBC vs FCPA)');
+    sgtitle('Jamming-Aware WSN Simulation — 100-Seed Average (Proposed vs TBC vs FCPA)');
 
 end

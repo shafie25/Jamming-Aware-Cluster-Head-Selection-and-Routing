@@ -95,8 +95,11 @@ for k = 1:n_schemes
     for s = 1:n_seeds
         alive_s  = store.alive.(fd)(s,:);
         half_idx = find(alive_s <= N/2, 1, 'first');
-        hnd(s)   = half_idx;   % NaN if never reached (half_idx empty → MATLAB returns [])
-        if isempty(half_idx); hnd(s) = T; end
+        if isempty(half_idx)
+            hnd(s) = T;
+        else
+            hnd(s) = half_idx;
+        end
     end
     fprintf(' %6.1f +/- %5.1f      |', mean(hnd,'omitnan'), std(hnd,'omitnan'));
 end
