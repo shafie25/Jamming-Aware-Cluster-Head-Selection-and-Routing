@@ -20,7 +20,7 @@
 %   Nodes with no path to BS (isolated or all neighbors jammed) lose packets.
 %
 % Inputs: same workspace variables as run_proposed.m / run_leach.m
-% Output: results struct with PDR, energy, delay, alive, t_death, label
+% Output: results struct with PDR, sent, delivered, energy, delay, alive, t_death, label
 
 function results = run_tbc(x, y, BS, J_x, J_y, ...
     E0, T, M, p_base, kappa, r_j, E_elec, E_amp, L, r_tx)

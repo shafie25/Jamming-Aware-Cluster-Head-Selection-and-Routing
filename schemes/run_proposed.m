@@ -4,7 +4,7 @@
 % Returns per-round metrics for plotting.
 %
 % Inputs:  all variables from main.m workspace (loaded via config + init)
-% Outputs: results_proposed struct with per-round metrics
+% Outputs: results_proposed struct with per-round metrics, including actual sent and delivered packet counts
 
 function results = run_proposed(x, y, BS, J_x, J_y, dist_to_BS, ...
     E0, d_max, T, K_elec, M, lambda, p_CH, r_c, r_exc, ...

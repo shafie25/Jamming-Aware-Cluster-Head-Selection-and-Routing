@@ -18,12 +18,12 @@
 % round was an unfair per-round overhead penalty.
 %
 % Energy/PDR accounting:
-%   - PDR = member-to-CH packets delivered (consistent with run_proposed.m)
+%   - PDR = end-to-end packets delivered to the BS
 %   - Fixed M packet trials per alive node in total_sent denominator
 %   - Relay nodes accumulate TX+RX forwarding costs via deferred delta
 %
 % Inputs: same workspace variables as run_proposed.m
-% Output: results struct with PDR, energy, delay, alive, t_death, label
+% Output: results struct with PDR, sent, delivered, energy, delay, alive, t_death, label
 
 function results = run_fcpa(x, y, BS, J_x, J_y, E0, T, M, K_elec, ...
     p_CH, p_base, kappa, r_j, E_elec, E_amp, E_da, L, r_tx)

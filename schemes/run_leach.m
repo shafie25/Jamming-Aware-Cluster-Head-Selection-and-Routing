@@ -24,7 +24,7 @@
 %   L          — per-node payload bits per round represented by the M trials
 %
 % Output:
-%   results    — struct with fields: PDR, energy, delay, alive, t_death, label
+%   results    — struct with fields: PDR, sent, delivered, energy, delay, alive, t_death, label
 
 function results = run_leach(x, y, BS, J_x, J_y, E0, T, M, ...
     p_base, kappa, r_j, E_elec, E_amp, E_da, L, r_tx)

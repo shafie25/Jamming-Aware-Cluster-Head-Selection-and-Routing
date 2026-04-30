@@ -6,7 +6,7 @@
 % Inputs:
 %   results_all — cell array of structs, one per scheme.
 %                 Each struct: PDR_mean, PDR_std, energy_mean, energy_std,
-%                 delay_mean, delay_std, alive_mean, alive_std, label
+%                 delay_mean, delay_std, alive_mean, alive_std, cum_pkts_mean, cum_pkts_std, label
 %   T           — total simulation rounds
 
 function plot_multiseed(results_all, T)
@@ -56,9 +56,8 @@ function plot_multiseed(results_all, T)
     legend('Location', 'northeast', 'FontSize', 8); grid on;
 
     %% Panel 3 — Cumulative Delivered Packets
-    % Each round contributes PDR(t) * alive(t) * M packets to the running total.
-    % Curves plateau when a scheme's network dies, making the lifetime×PDR
-    % tradeoff visible as a gap between plateau heights.
+    % Curves use actual delivered packet counts reported by each scheme.
+    % This matters because the proposed scheme adapts its packet-trial count.
     subplot(2, 2, 3); hold on;
     for s = 1:n_schemes
         r = results_all{s};

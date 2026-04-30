@@ -1,12 +1,13 @@
 %% export_figures.m — Generate and save publication-quality figures
 %
 % Run from project root after run_multiseed.m (or it will re-run the sim).
-% Saves three separate PDF + PNG figures into figures/ for the LaTeX paper.
+% Saves four separate PDF + PNG figures into figures/ for the LaTeX paper.
 %
 % Output files:
 %   figures/fig_pdr.pdf       — Packet Delivery Ratio vs Round
 %   figures/fig_energy.pdf    — Total Residual Energy vs Round
 %   figures/fig_alive.pdf     — Alive Node Count vs Round
+%   figures/fig_cum_pkts.pdf  — Cumulative Delivered Packets vs Round
 
 clc; clear; close all;
 script_dir   = fileparts(mfilename('fullpath'));
