@@ -1406,6 +1406,8 @@ Results confirmed stable across seeds. Canonical comparison going forward: Propo
 
 No simulation changes. Paper write-up and figure export completed.
 
+**Historical note:** This entry records the Run 021 submission state at that time. The current canonical report inputs and results are superseded by Run 030.
+
 ### New Files
 
 | File | Description |
@@ -1445,7 +1447,7 @@ The paper follows IEEEtran conference format with these sections:
 
 ### Overleaf Upload List
 
-Upload these four files: `paper.tex`, `references.bib`, `figures/fig_combined.pdf`, `system_model.pdf`
+Historical upload list at Run 021 time: `paper.tex`, `references.bib`, `figures/fig_combined.pdf`, `system_model.pdf`. Current final upload list is in Run 030.
 
 ### Project Status
 
@@ -1768,7 +1770,7 @@ Despite the efficiency fixes, FND remained at 561 — still below FCPA's 572. Pr
 
 ---
 
-## Run 028 — Stranded Node Relay v3 (Post-FND Gated) — CURRENT CANONICAL
+## Run 028 — Stranded Node Relay v3 (Post-FND Gated)
 
 **Date:** 2026-04-28
 **Run by:** Ahmed + Claude Code
@@ -1832,7 +1834,7 @@ The relay burns remaining energy on stranded nodes post-FND, slightly accelerati
 
 ---
 
-## Run 029 — Bug Fixes: FCPA Energy Gate + HND Guard + Plot Title (CURRENT CANONICAL)
+## Run 029 — Bug Fixes: FCPA Energy Gate + HND Guard + Plot Title
 
 **Date:** 2026-04-30
 **Run by:** Ahmed + Claude Code
@@ -1894,13 +1896,92 @@ The all-rounds PDR denominator spans all T=1000 rounds. FCPA now lives ~21 round
 Corner CHs (>50m from BS) were burning TX energy every round without being able to deliver packets, depleting their batteries faster than they should. Fixing this gives FCPA +21 rounds FND and +51 rounds HND — a meaningful lifetime improvement for the baseline.
 
 **2. Proposed still wins cleanly on all key metrics.**
-+233 rounds FND vs TBC, +109 rounds FND vs FCPA. All-rounds PDR advantage over FCPA grows to +20.18pp (was +16.05pp in paper) because FCPA's longer lifetime adds more degraded rounds to its average window. Proposed delivers 697k total packets vs 511k (TBC, +36%) and 500k (FCPA, +39%).
++233 rounds FND vs TBC, +109 rounds FND vs FCPA. All-rounds PDR advantage over FCPA grows to +20.18pp (was +16.05pp in paper) because FCPA's longer lifetime adds more degraded rounds to its average window. The reconstructed total-packet metric used in this run was later replaced by actual sink-delivery counts in Run 030.
 
-**3. These are the final canonical numbers for the paper.**
-The paper currently contains the correct Proposed and TBC numbers (unchanged). FCPA rows in paper Table II need updating with Run 029 values.
+**3. Superseded for delivered-packet accounting.**
+The FND, HND, PDR, and energy values from this run remain the basis for the final paper. The total-delivered-packets metric was later corrected in Run 030 to use actual sink deliveries instead of reconstructing throughput from `PDR * alive * M`.
 
-### What to Do Next
+### What Happened Next
 
-- Update paper.tex FCPA rows and revised comparison statistics (PDR gap now 20.18pp vs FCPA instead of 16.05pp)
-- Update CLAUDE.md current best results table — done in this session
-- Switch paper figure references from .png to .pdf (PDFs exist in figures/)
+Run 030 completed the paper/report update with corrected actual delivered-packet accounting and regenerated figures. The Run 029 FND, HND, PDR, and energy values remain valid; the Run 029 total-packet values are historical and should not be used in the final report.
+
+---
+
+## Run 030 - Delivered-Packet Accounting Fix and Final Report Audit (CURRENT CANONICAL)
+
+**Date:** 2026-04-30
+**Run by:** Ahmed + Codex
+
+### What This Run Was
+
+Pre-submission audit found that the "Total delivered packets" metric was reconstructed in `run_multiseed.m` and `plotting/export_figures.m` as:
+
+```matlab
+sum(PDR(t) * alive(t) * M)
+```
+
+That reconstruction is exact only for schemes whose attempted-packet denominator is always `alive(t) * M`. It is not correct for the proposed scheme because adaptive burst size uses `M_eff(i) = round(M * (1 - JR(i)))`, so some alive nodes intentionally attempt fewer than `M` packets. The fix was to have every scheme return actual per-round `sent` and `delivered` counts and to compute cumulative delivered packets directly from packets received at the sink.
+
+### Code Changes
+
+| File | Change |
+|---|---|
+| `schemes/run_proposed.m` | Added `results.sent` and `results.delivered`; populated from per-round `total_sent` and `total_recv` |
+| `schemes/run_tbc.m` | Added `results.sent` and `results.delivered` |
+| `schemes/run_fcpa.m` | Added `results.sent` and `results.delivered` |
+| `schemes/run_leach.m` | Added the same fields for reference consistency |
+| `run_multiseed.m` | Stores delivered counts and reports total delivered packets as `sum(store.delivered, 2) / 1000` |
+| `plotting/export_figures.m` | Uses actual delivered counts for `fig_cum_pkts` |
+| `paper.tex` | Updated Table II, abstract, discussion, and conclusion to match corrected throughput |
+| `docs/README.md`, `CLAUDE.md` | Updated current results and Overleaf figure/source checklist |
+| `system.drawio` | Added as the source file for the system model figure |
+
+### Verification
+
+- `main.m` completed successfully after the code changes.
+- `run_multiseed.m` completed 100 seeds and produced the table below.
+- `plotting/export_figures.m` regenerated `fig_pdr`, `fig_energy`, `fig_alive`, and `fig_cum_pkts`. MATLAB wrote all files, then crashed during shutdown with a Qt access violation; the output files were verified by timestamp and size.
+- MATLAB `checkcode` reported no messages for the edited scripts.
+- Paper static checks passed: abstract is 158 words, no missing citations, no missing references, and no missing figure files.
+- Latest compiled PDF was checked for stale values; it contains the corrected `566.7k` and `400.2k` delivered-packet values and no longer contains the old `697.1k` / `499.7k` values.
+
+### Results (mean +/- std across 100 seeds, seeds 1:100)
+
+| Metric | Proposed | TBC | FCPA |
+|---|---|---|---|
+| FND (rnd) | **702.2 +/- 34.9** | 469.2 +/- 49.0 | 593.2 +/- 52.9 |
+| HND (rnd) | **912.7 +/- 20.5** | 634.0 +/- 50.6 | 879.1 +/- 17.3 |
+| PDR all rounds (%) | **74.30 +/- 5.16** | 52.54 +/- 4.16 | 54.12 +/- 3.24 |
+| PDR FND-trunc (%) | 78.24 +/- 3.88 | **82.49 +/- 0.56** | 59.89 +/- 3.13 |
+| PDR@r300 (%) | 82.13 +/- 7.56 | **83.07 +/- 3.28** | 50.53 +/- 8.82 |
+| Energy@r300 (J) | **34.17 +/- 0.37** | 26.68 +/- 1.23 | 33.11 +/- 0.31 |
+| Total del. pkts (k) | **566.7 +/- 32.7** | 511.2 +/- 37.4 | 400.2 +/- 21.5 |
+
+### Why the Total Changed
+
+The previous value overstated proposed throughput because it multiplied PDR by `alive * M` even when adaptive burst control reduced the attempted-packet denominator below `alive * M`. The corrected value counts actual packets delivered to the sink. This is the right metric for comparing cumulative throughput across schemes with different transmission-rate policies.
+
+### Takeaways
+
+**1. The main result still holds.**
+Proposed remains best on FND, HND, all-rounds PDR, energy at round 300, and total delivered packets.
+
+**2. The throughput advantage is smaller versus TBC but larger versus FCPA.**
+Corrected delivered packets are 566.7k for proposed, 511.2k for TBC, and 400.2k for FCPA. That is +55.5k packets versus TBC (+11%) and +166.5k versus FCPA (+42%).
+
+**3. Paper wording was adjusted to avoid overclaiming.**
+The final report no longer claims zero communication blackout rounds. The FCPA oscillation discussion is phrased as an interpretation consistent with the binary IPN gate and periodic UAV orbit, not as proof.
+
+### Submission State
+
+Current Overleaf inputs should be:
+- `paper.tex`
+- `references.bib`
+- `system_model.pdf`
+- `system.drawio`
+- `figures/fig_pdr.pdf`
+- `figures/fig_energy.pdf`
+- `figures/fig_alive.pdf`
+- `figures/fig_cum_pkts.pdf`
+- Final MATLAB files in `Code/`
+
