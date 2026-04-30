@@ -1,4 +1,4 @@
-# WSN Jamming-Aware Simulation - README
+﻿# WSN Jamming-Aware Simulation - README
 
 ## Project Overview
 
@@ -19,7 +19,7 @@ The code evaluates a proposed heuristic that integrates jamming risk (JR) into c
 main.m
 ```
 
-**Multi-seed averaged results (current default: 20 seeds):**
+**Multi-seed averaged results (current default: 100 seeds):**
 ```matlab
 run_multiseed.m
 ```
@@ -44,9 +44,9 @@ plotting/visualize_snapshot.m      % set snapshot_round and seed at top of file
 
 **Export publication figures (PDF + PNG for Overleaf):**
 ```matlab
-plotting/export_figures.m          % runs 20-seed sim internally, saves to figures/
+plotting/export_figures.m          % runs 100-seed sim internally, saves to figures/
 ```
-Output: `figures/fig_combined.pdf` (3-panel PDR/Energy/Alive), plus individual `fig_pdr.pdf`, `fig_energy.pdf`, `fig_alive.pdf`.
+Output: individual `fig_pdr.pdf`, `fig_energy.pdf`, `fig_alive.pdf`, and `fig_cum_pkts.pdf` for Overleaf.
 
 ---
 
@@ -71,7 +71,7 @@ Output: `figures/fig_combined.pdf` (3-panel PDR/Energy/Alive), plus individual `
 | `phi1` | 5e-4 | Dijkstra per-hop penalty (J) |
 | `phi2` | 1 | Dijkstra energy scale |
 | `phi3` | 5e-4 | Dijkstra JR penalty (J) |
-| seeds | `1:20` | default multi-seed range |
+| seeds | `1:100` | default multi-seed range |
 
 ---
 
@@ -150,34 +150,33 @@ With `kappa=10`, a node at the jammer center has `p ≈ 0.00004` — effectively
 
 ---
 
-## Current Best Results (Run 028, 100 seeds)
+## Current Best Results (Run 029, 100 seeds)
 
 | Metric | Proposed | TBC | FCPA |
 |---|---|---|---|
-| FND (round) | **702.2 ± 34.9** | 469.2 ± 49.0 | 571.9 ± 42.4 |
-| HND (round) | **912.7 ± 20.5** | 634.0 ± 50.6 | 828.0 ± 11.2 |
-| PDR all rounds (%) | **79.44 ± 1.70** | 52.54 ± 4.16 | 58.25 ± 2.88 |
-| PDR FND-trunc (%) | 80.96 ± 1.48 | **82.49 ± 0.56** | 59.87 ± 3.13 |
-| PDR @ round 300 (%) | **84.41 ± 4.54** | 83.07 ± 3.28 | 50.53 ± 8.82 |
-| Energy @ round 300 (J) | **34.17 ± 0.37** | 26.68 ± 1.23 | 31.95 ± 0.24 |
-| Total delivered pkts (k) | **731.7 ± 17.8** | 511.2 ± 37.4 | 495.7 ± 25.9 |
+| FND (round) | **702.2 +/- 34.9** | 469.2 +/- 49.0 | 593.2 +/- 52.9 |
+| HND (round) | **912.7 +/- 20.5** | 634.0 +/- 50.6 | 879.1 +/- 17.3 |
+| PDR all rounds (%) | **74.30 +/- 5.16** | 52.54 +/- 4.16 | 54.12 +/- 3.24 |
+| PDR FND-trunc (%) | 78.24 +/- 3.88 | **82.49 +/- 0.56** | 59.89 +/- 3.13 |
+| PDR @ round 300 (%) | 82.13 +/- 7.56 | **83.07 +/- 3.28** | 50.53 +/- 8.82 |
+| Energy @ round 300 (J) | **34.17 +/- 0.37** | 26.68 +/- 1.23 | 33.11 +/- 0.31 |
+| Total delivered pkts (k) | **566.7 +/- 32.7** | 511.2 +/- 37.4 | 400.2 +/- 21.5 |
 
-Proposed wins on FND (+233 rounds vs TBC, +130 vs FCPA), HND (+279 vs TBC, +85 vs FCPA), all-rounds PDR (+26.90pp vs TBC, +21.19pp vs FCPA), and total delivered packets (+220k vs TBC, +236k vs FCPA). TBC's slightly higher FND-trunc PDR is an asymmetric window artefact from its shorter lifetime. Run 028 added post-FND stranded node relay; Run 025 added HND, PDR@r300, and total delivered packets metrics; Run 024 fixed FCPA's election overhead cadence.
+Proposed wins on FND (+233 rounds vs TBC, +109 vs FCPA), HND (+279 vs TBC, +34 vs FCPA), all-rounds PDR (+21.76pp vs TBC, +20.18pp vs FCPA), and total delivered packets (+55.5k vs TBC, +166.5k vs FCPA). TBC's slightly higher FND-trunc PDR is an asymmetric window artifact from its shorter lifetime. Run 029 fixed FCPA unreachable-BS accounting and reports delivered packets from actual sink deliveries; Run 028 added post-FND stranded node relay; Run 025 added HND, PDR@r300, and total delivered packets metrics; Run 024 fixed FCPA's election overhead cadence.
 
 Key findings:
 
-- **TBC** (flat multi-hop, no clustering) dies at ~round 469 from relay overload — nodes near the BS exhaust their energy forwarding packets for the entire field. Validates the clustering premise.
-- **FCPA** (clustered, exact jammer geometry) dies at ~round 572 from cooperative relay overhead. Despite perfect jammer position knowledge each round, FCPA cannot match the proposed scheme's EWMA temporal memory and adaptive burst size. FCPA's PDR@r300 (50.53%) confirms the cooperative relay is structurally lossy even when the network is fully alive.
-- PDR is measured **end-to-end at the BS** — packets must survive all routing hops, not just reach the cluster head.
-- **Total delivered packets** (731k vs 511k vs 496k) is the cleanest single metric — it integrates per-round PDR quality and network lifetime simultaneously, immune to window choice.
+- **TBC** (flat multi-hop, no clustering) dies at ~round 469 from relay overload: nodes near the BS exhaust their energy forwarding packets for the entire field. This validates the clustering premise.
+- **FCPA** (clustered, exact jammer geometry) dies at ~round 593 from cooperative relay overhead. Despite perfect jammer position knowledge each round, FCPA cannot match the proposed scheme's EWMA temporal memory and adaptive burst size. FCPA's PDR@r300 (50.53%) confirms the cooperative relay is structurally lossy even when the network is fully alive.
+- PDR is measured **end-to-end at the BS**: packets must survive all routing hops, not just reach the cluster head.
+- **Total delivered packets** (567k vs 511k vs 400k) is the cleanest single metric: it integrates actual sink deliveries and network lifetime simultaneously, immune to window choice.
 
 ---
-
 ## File Structure
 
 ```
 main.m                          single-seed entry point (Proposed + TBC + FCPA)
-run_multiseed.m                 main 20-seed evaluation entry point
+run_multiseed.m                 main 100-seed evaluation entry point
 CLAUDE.md                       session context for Claude Code
 
 core/
@@ -207,10 +206,11 @@ plotting/
   export_figures.m              publication-quality figure export for Overleaf
 
 figures/                        generated by export_figures.m — upload to Overleaf
-  fig_combined.pdf              3-panel figure (paper Fig. 2): PDR + Energy + Alive
+  fig_combined.png              combined preview: PDR + Energy + Alive
   fig_pdr.pdf / fig_pdr.png     PDR vs Round (individual)
   fig_energy.pdf / fig_energy.png  Residual Energy vs Round (individual)
   fig_alive.pdf / fig_alive.png    Alive Nodes vs Round (individual)
+  fig_cum_pkts.pdf / fig_cum_pkts.png  Cumulative delivered packets
 
 paper.tex                       complete IEEE-format paper (all sections finalized)
 references.bib                  BibTeX entries for baseline references [1][2][3]
@@ -247,17 +247,19 @@ reference/
 
 ## Paper Submission Checklist
 
-Upload these four files to Overleaf:
+Minimum Overleaf submission files:
 1. `paper.tex` — complete IEEE conference paper
 2. `references.bib` — BibTeX entries
-3. `figures/fig_combined.pdf` — 3-panel simulation results figure
+3. `figures/fig_pdr.pdf`, `fig_energy.pdf`, `fig_alive.pdf`, `fig_cum_pkts.pdf`
 4. `system_model.pdf` — system model diagram (Fig. 1)
+5. `system.drawio` — source file for the system model
+6. `Code/` folder — final MATLAB source files
 
 To regenerate figures (e.g. after a parameter change), re-run:
 ```matlab
 plotting/export_figures.m
 ```
-This takes ~2 minutes for 20 seeds and overwrites `figures/`.
+This takes ~2 minutes for 100 seeds and overwrites `figures/`.
 
 ---
 
@@ -269,3 +271,6 @@ Every major run should be added to `docs/SIMULATION_LOG.md` with:
 - full parameter snapshot
 - results table
 - takeaways and next steps
+
+
+

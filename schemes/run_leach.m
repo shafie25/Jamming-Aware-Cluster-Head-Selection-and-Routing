@@ -38,10 +38,12 @@ function results = run_leach(x, y, BS, J_x, J_y, E0, T, M, ...
     G      = true(1, N);   % eligibility: false for nodes that were CH this epoch
 
     %% Initialize metrics storage
-    PDR_per_round    = zeros(1, T);
-    energy_per_round = zeros(1, T);
-    delay_per_round  = zeros(1, T);
-    alive_per_round  = zeros(1, T);
+    PDR_per_round       = zeros(1, T);
+    sent_per_round      = zeros(1, T);
+    delivered_per_round = zeros(1, T);
+    energy_per_round    = zeros(1, T);
+    delay_per_round     = zeros(1, T);
+    alive_per_round     = zeros(1, T);
     t_death          = NaN;
 
     %% Round Loop
@@ -125,10 +127,12 @@ function results = run_leach(x, y, BS, J_x, J_y, E0, T, M, ...
         total_sent = total_sent + n_stranded * M;
 
         %% --- Record Metrics ---
-        PDR_per_round(t)    = (total_sent > 0) * total_recv / max(total_sent, 1);
-        energy_per_round(t) = sum(energy(alive));
-        delay_per_round(t)  = (n_CH_active > 0) * 1;   % LEACH is always 1 hop CH->BS
-        alive_per_round(t)  = sum(alive);
+        PDR_per_round(t)       = (total_sent > 0) * total_recv / max(total_sent, 1);
+        sent_per_round(t)      = total_sent;
+        delivered_per_round(t) = total_recv;
+        energy_per_round(t)    = sum(energy(alive));
+        delay_per_round(t)     = (n_CH_active > 0) * 1;   % LEACH is always 1 hop CH->BS
+        alive_per_round(t)     = sum(alive);
 
         %% --- Node Death Check ---
         newly_dead = alive & (energy <= 0);
@@ -142,11 +146,13 @@ function results = run_leach(x, y, BS, J_x, J_y, E0, T, M, ...
     end
 
     %% Package results
-    results.PDR     = PDR_per_round;
-    results.energy  = energy_per_round;
-    results.delay   = delay_per_round;
-    results.alive   = alive_per_round;
-    results.t_death = t_death;
-    results.label   = 'Standard LEACH';
+    results.PDR       = PDR_per_round;
+    results.sent      = sent_per_round;
+    results.delivered = delivered_per_round;
+    results.energy    = energy_per_round;
+    results.delay     = delay_per_round;
+    results.alive     = alive_per_round;
+    results.t_death   = t_death;
+    results.label     = 'Standard LEACH';
 
 end

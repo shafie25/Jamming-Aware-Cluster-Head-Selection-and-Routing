@@ -9,10 +9,12 @@
 %   figures/fig_alive.pdf     — Alive Node Count vs Round
 
 clc; clear; close all;
-addpath(genpath('.'));
+script_dir   = fileparts(mfilename('fullpath'));
+project_root = fileparts(script_dir);
+addpath(genpath(project_root));
 
 %% ---- Output directory ----
-fig_dir = fullfile(pwd, 'figures');
+fig_dir = fullfile(project_root, 'figures');
 if ~exist(fig_dir, 'dir'); mkdir(fig_dir); end
 
 %% ---- Run simulation ----
@@ -24,7 +26,7 @@ n_schemes = 3;
 config;
 
 store = struct();
-fields = {'PDR','energy','delay','alive'};
+fields = {'PDR','sent','delivered','energy','delay','alive'};
 labels = {'proposed','tbc','fcpa'};
 for f = 1:length(fields)
     for l = 1:length(labels)
@@ -43,6 +45,8 @@ for s = 1:n_seeds
         alpha, beta, gamma_, delta, phi1, phi2, phi3, ...
         p_base, kappa, r_j, E_elec, E_amp, E_da, L, r_tx);
     store.PDR.proposed(s,:) = rp.PDR;
+    store.sent.proposed(s,:) = rp.sent;
+    store.delivered.proposed(s,:) = rp.delivered;
     store.energy.proposed(s,:) = rp.energy;
     store.delay.proposed(s,:) = rp.delay;
     store.alive.proposed(s,:) = rp.alive;
@@ -50,6 +54,8 @@ for s = 1:n_seeds
 
     rt = run_tbc(x, y, BS, J_x, J_y, E0, T, M, p_base, kappa, r_j, E_elec, E_amp, L, r_tx);
     store.PDR.tbc(s,:) = rt.PDR;
+    store.sent.tbc(s,:) = rt.sent;
+    store.delivered.tbc(s,:) = rt.delivered;
     store.energy.tbc(s,:) = rt.energy;
     store.delay.tbc(s,:) = rt.delay;
     store.alive.tbc(s,:) = rt.alive;
@@ -57,6 +63,8 @@ for s = 1:n_seeds
 
     rf = run_fcpa(x, y, BS, J_x, J_y, E0, T, M, K_elec, p_CH, p_base, kappa, r_j, E_elec, E_amp, E_da, L, r_tx);
     store.PDR.fcpa(s,:) = rf.PDR;
+    store.sent.fcpa(s,:) = rf.sent;
+    store.delivered.fcpa(s,:) = rf.delivered;
     store.energy.fcpa(s,:) = rf.energy;
     store.delay.fcpa(s,:) = rf.delay;
     store.alive.fcpa(s,:) = rf.alive;
@@ -80,10 +88,7 @@ end
 % Cumulative delivered packets per scheme
 for k = 1:n_schemes
     fd = scheme_fields{k};
-    tpd_all = zeros(n_seeds, T);
-    for s = 1:n_seeds
-        tpd_all(s,:) = cumsum(store.PDR.(fd)(s,:) .* store.alive.(fd)(s,:)) * M / 1000;
-    end
+    tpd_all = cumsum(store.delivered.(fd), 2) / 1000;
     ms{k}.cum_pkts_mean = mean(tpd_all, 1);
     ms{k}.cum_pkts_std  = std( tpd_all, 0, 1);
 end

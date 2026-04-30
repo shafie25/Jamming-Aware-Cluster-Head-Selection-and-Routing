@@ -1,4 +1,4 @@
-# CLAUDE.md - Context for Claude Code Sessions
+﻿# CLAUDE.md - Context for Claude Code Sessions
 
 ## What This Project Is
 
@@ -16,20 +16,20 @@ MATLAB simulation for a graduate wireless networks course project:
 - `schemes/run_leach.m` — standard LEACH (kept as reference; removed from active comparison in Run 020)
 - `schemes/run_tbc.m` — TBC baseline: flat multi-hop topology, instantaneous PDR detection, energy-aware Dijkstra, threshold suppression (Run 019 energy fix)
 - `schemes/run_fcpa.m` — FCPA baseline: K_elec-gated election (Run 024), IPN-gated CH election + cooperative relay for jammed members; CH→BS TX energy + PDR gated on r_tx (Run 029 bug fix)
-- `run_multiseed.m` — main evaluation: seeds 1:100, Proposed + TBC + FCPA; metrics: FND, HND, PDR all rounds, PDR FND-trunc, PDR@r300, Energy@r300, total delivered packets (Run 025)
+- `run_multiseed.m` — main evaluation: seeds 1:100, Proposed + TBC + FCPA; metrics: FND, HND, PDR all rounds, PDR FND-trunc, PDR@r300, Energy@r300, and actual total delivered packets (Run 029)
 - `plotting/plot_multiseed.m` — 4-panel figure: PDR, Energy, Cumulative Delivered Packets, Alive Nodes (Run 025: delay panel replaced)
 - `plotting/visualize_snapshot.m` — 2D network map with JR heatmap and routing paths
 - `plotting/export_figures.m` — runs 100-seed sim internally and exports publication-quality PDFs/PNGs to `figures/`
 - `testing/visualize_tbc_routing.m` — TBC routing snapshot: paths, relay load, jammed/isolated nodes
 - `testing/` — all sensitivity sweeps, routing experiments, and diagnostics (run from project root)
-- `paper.tex` — IEEE-format paper (numbers current as of Run 029; FCPA rows need updating)
+- `paper.tex` — IEEE-format paper (numbers current as of Run 029)
 - `references.bib` — BibTeX entries for all three cited baselines
 - `figures/` — exported figure PDFs and PNGs (regenerated after Run 029)
 
 ### Entry Points
 - `main.m` — single seed quick check (Proposed + TBC + FCPA)
 - `run_multiseed.m` — canonical comparative evaluation
-- `plotting/export_figures.m` — regenerate all paper figures (runs 20-seed sim internally)
+- `plotting/export_figures.m` — regenerate all paper figures (runs 100-seed sim internally)
 
 ### Active Model
 - `kappa = 10`
@@ -55,9 +55,9 @@ MATLAB simulation for a graduate wireless networks course project:
 | PDR FND-trunc (%) | 78.24 +/- 3.88 | **82.49 +/- 0.56** | 59.89 +/- 3.13 |
 | PDR@r300 (%) | 82.13 +/- 7.56 | **83.07 +/- 3.28** | 50.53 +/- 8.82 |
 | Energy@r300 (J) | **34.17 +/- 0.37** | 26.68 +/- 1.23 | 33.11 +/- 0.31 |
-| Total del. pkts (k) | **697.1 +/- 42.4** | 511.2 +/- 37.4 | 499.7 +/- 26.3 |
+| Total del. pkts (k) | **566.7 +/- 32.7** | 511.2 +/- 37.4 | 400.2 +/- 21.5 |
 
-Proposed wins on FND (+233 rounds vs TBC, +109 rounds vs FCPA), HND (+279 vs TBC, +34 vs FCPA), all-rounds PDR (+21.76pp vs TBC, +20.18pp vs FCPA), and total delivered packets (+186k vs TBC, +197k vs FCPA). TBC's slightly higher FND-trunc PDR (82.49% vs 78.24%) is a window artefact from its shorter lifetime. FCPA's PDR@r300 (50.53%) confirms its cooperative relay has a structural per-round PDR deficit even when the network is fully healthy — not just a lifetime-window effect. FCPA's lower all-rounds PDR (54.12%) vs Run 028 (58.25%) is because the Run 029 energy bug fix lets FCPA live longer (+21 rounds FND, +51 rounds HND), exposing more degraded late-network rounds in the window average.
+Proposed wins on FND (+233 rounds vs TBC, +109 rounds vs FCPA), HND (+279 vs TBC, +34 vs FCPA), all-rounds PDR (+21.76pp vs TBC, +20.18pp vs FCPA), and total delivered packets (+55.5k vs TBC, +166.5k vs FCPA). TBC's slightly higher FND-trunc PDR (82.49% vs 78.24%) is a window artifact from its shorter lifetime. FCPA's PDR@r300 (50.53%) confirms its cooperative relay has a structural per-round PDR deficit even when the network is fully healthy, not just a lifetime-window effect. Total delivered packets are now computed from actual packets received at the sink, not reconstructed as PDR*alive*M.
 
 ---
 
@@ -76,13 +76,13 @@ Sweep over {0.6, 0.7, 0.8}: no PDR gain from higher lambda, worse blackouts from
 `r_c=15m` is only used in the CHScore beta term for neighbor counting. Hard radio limit is `r_tx=50m`.
 
 **PDR is reported in two windows.**
-All-rounds PDR and FND-truncated PDR. Zero-PDR round count was removed from `run_multiseed.m` output in Run 021 (proposed always has 0; it added noise without insight for the other two schemes).
+All-rounds PDR, FND-truncated PDR, PDR@r300, energy@r300, HND/FND, and actual total delivered packets are reported.
 
 **`gamma_` not `gamma`.**
 `gamma` conflicts with a MATLAB builtin. The CHScore jamming-risk weight is `gamma_` everywhere.
 
-**Exact jammer position does not beat EWMA JR (Run 020/024/028).**
-FCPA has omniscient jammer geometry; proposed only estimates JR from experienced packet loss. Proposed wins by +21.19pp all-rounds PDR and +130 rounds FND (Run 028, 100-seed numbers). EWMA temporal memory + adaptive M_eff + sleep timer + post-FND relay outweighs the information advantage of exact geometry even against a fairer FCPA baseline.
+**Exact jammer position does not beat EWMA JR (Run 020/024/029).**
+FCPA has omniscient jammer geometry; proposed only estimates JR from experienced packet loss. Proposed wins by +20.18pp all-rounds PDR and +109 rounds FND (Run 029, 100-seed numbers). EWMA temporal memory + adaptive M_eff + sleep timer + post-FND relay outweighs the information advantage of exact geometry even against a fairer FCPA baseline.
 
 **Post-FND relay must stay gated on `~isnan(t_death)`.**
 Runs 026–027 showed that relay active in healthy rounds drains relay nodes faster than it delivers packets, causing FND to drop below FCPA (551/561 vs 572). Gate is load-bearing — do not remove it. All three efficiency constraints (JR < 0.5 filter, one relay per relay node per round, amortised relay→CH energy) must be retained together.
@@ -120,7 +120,7 @@ plotting/
   visualize_snapshot.m
   export_figures.m           (NEW) publication figure export for Overleaf
 figures/
-  fig_combined.pdf           3-panel PDR + Energy + Alive (paper Fig. 2)
+  fig_combined.png           combined preview
   fig_pdr.pdf
   fig_energy.pdf
   fig_alive.pdf
@@ -152,7 +152,7 @@ The simulation, evaluation, and paper write-up are finished. Everything needed f
 
 ### Done
 1. ~~Paper write-up~~ — `paper.tex` complete. All sections written: Abstract, Introduction, Related Work, Contributions, System Model, Proposed Scheme (including M_eff subsection), Simulation Results (Table I parameters, Table II results, Figure, Discussion), Conclusion. `references.bib` created.
-2. ~~Figure export~~ — `plotting/export_figures.m` written and run. `figures/fig_combined.pdf` generated and ready for Overleaf.
+2. ~~Figure export~~ — `plotting/export_figures.m` written and run. individual paper figures generated in `figures/`: `fig_pdr.pdf`, `fig_energy.pdf`, `fig_alive.pdf`, and `fig_cum_pkts.pdf`.
 3. ~~Baseline correctness review~~ — done in Run 022. FCPA overhead, end-to-end PDR, r_tx in Dijkstra, FCPA range gate, sleep timer.
 4. ~~FCPA baseline~~ — done in Run 020. IPN-gated election + cooperative relay.
 5. ~~TBC energy fix~~ — done in Run 019. recv_packets/M scaling corrected.
@@ -160,10 +160,10 @@ The simulation, evaluation, and paper write-up are finished. Everything needed f
 7. ~~Adaptive burst size~~ — done in Run 017. M_eff = round(M*(1-JR)), floor lowered to 0 in Run 022 with sleep timer.
 8. ~~Scaled-up geometry test~~ — done in Run 016. Dijkstra confirmed net-negative at 200x200m.
 9. ~~phi1 sweep~~ — done in Run 014. phi1=5e-4 is canonical.
-10. ~~Zero-PDR rounds~~ — solved (0.0 +/- 0.0 for proposed).
+10. ~~Final report audit~~ — corrected actual delivered-packet accounting, refreshed paper table/discussion, and verified the compiled PDF.
 
 ### To Submit
-Upload to Overleaf: `paper.tex`, `references.bib`, `figures/fig_combined.pdf`, `system_model.pdf`
+Upload to Overleaf: `paper.tex`, `references.bib`, `figures/fig_pdr.pdf`, `figures/fig_energy.pdf`, `figures/fig_alive.pdf`, `figures/fig_cum_pkts.pdf`, `system_model.pdf`, `system.drawio`, and final MATLAB files in `Code/`.
 
 ---
 
@@ -175,3 +175,4 @@ Upload to Overleaf: `paper.tex`, `references.bib`, `figures/fig_combined.pdf`, `
 4. Use fixed M=10 packet-trial count (no adaptive M_eff) for fair comparison vs proposed.
 5. Wire into `main.m` and `run_multiseed.m`.
 6. Log results in `docs/SIMULATION_LOG.md`.
+

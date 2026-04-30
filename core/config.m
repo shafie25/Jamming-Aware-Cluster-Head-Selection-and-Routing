@@ -46,7 +46,7 @@ r_tx     = 50;                % hard transmission range limit (m) — member nod
 % won't flip JR. High enough to track UAV movement, low enough to smooth noise.
 lambda   = 0.6;               % EWMA smoothing constant (unitless), in (0,1)
 
-%% CHScore Weights (must reflect paper claim: gamma_ weighted most heavily)
+%% CHScore Weights
 % These sum to 1.0 for interpretability. Tune after seeing initial results.
 % alpha: energy,  beta: connectivity,  gamma_: jamming risk,  delta: BS distance
 alpha    = 0.35;              % weight on residual energy term

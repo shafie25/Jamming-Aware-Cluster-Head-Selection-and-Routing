@@ -39,10 +39,12 @@ function results = run_fcpa(x, y, BS, J_x, J_y, E0, T, M, K_elec, ...
     ch_died_last_round = false;
 
     %% Initialize metrics storage
-    PDR_per_round    = zeros(1, T);
-    energy_per_round = zeros(1, T);
-    delay_per_round  = zeros(1, T);
-    alive_per_round  = zeros(1, T);
+    PDR_per_round       = zeros(1, T);
+    sent_per_round      = zeros(1, T);
+    delivered_per_round = zeros(1, T);
+    energy_per_round    = zeros(1, T);
+    delay_per_round     = zeros(1, T);
+    alive_per_round     = zeros(1, T);
     t_death          = NaN;
 
     %% Precompute distances
@@ -222,10 +224,12 @@ function results = run_fcpa(x, y, BS, J_x, J_y, E0, T, M, K_elec, ...
         energy = energy + energy_delta;
 
         %% --- Record Metrics ---
-        PDR_per_round(t)    = (total_sent > 0) * total_recv / max(total_sent, 1);
-        energy_per_round(t) = sum(energy(alive));
-        delay_per_round(t)  = (n_routed > 0) * total_hops / max(n_routed, 1);
-        alive_per_round(t)  = sum(alive);
+        PDR_per_round(t)       = (total_sent > 0) * total_recv / max(total_sent, 1);
+        sent_per_round(t)      = total_sent;
+        delivered_per_round(t) = total_recv;
+        energy_per_round(t)    = sum(energy(alive));
+        delay_per_round(t)     = (n_routed > 0) * total_hops / max(n_routed, 1);
+        alive_per_round(t)     = sum(alive);
 
         %% --- Node Death Check ---
         newly_dead = alive & (energy <= 0);
@@ -240,11 +244,13 @@ function results = run_fcpa(x, y, BS, J_x, J_y, E0, T, M, K_elec, ...
     end
 
     %% Package results
-    results.PDR     = PDR_per_round;
-    results.energy  = energy_per_round;
-    results.delay   = delay_per_round;
-    results.alive   = alive_per_round;
-    results.t_death = t_death;
-    results.label   = 'FCPA';
+    results.PDR       = PDR_per_round;
+    results.sent      = sent_per_round;
+    results.delivered = delivered_per_round;
+    results.energy    = energy_per_round;
+    results.delay     = delay_per_round;
+    results.alive     = alive_per_round;
+    results.t_death   = t_death;
+    results.label     = 'FCPA';
 
 end

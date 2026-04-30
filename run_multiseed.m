@@ -16,7 +16,7 @@ n_schemes = 3;
 config;
 
 store = struct();
-fields = {'PDR','energy','delay','alive'};
+fields = {'PDR','sent','delivered','energy','delay','alive'};
 labels = {'proposed','tbc','fcpa'};
 
 for f = 1:length(fields)
@@ -41,6 +41,8 @@ for s = 1:n_seeds
         alpha, beta, gamma_, delta, phi1, phi2, phi3, ...
         p_base, kappa, r_j, E_elec, E_amp, E_da, L, r_tx);
     store.PDR.proposed(s,:)    = rp.PDR;
+    store.sent.proposed(s,:)   = rp.sent;
+    store.delivered.proposed(s,:) = rp.delivered;
     store.energy.proposed(s,:) = rp.energy;
     store.delay.proposed(s,:)  = rp.delay;
     store.alive.proposed(s,:)  = rp.alive;
@@ -51,6 +53,8 @@ for s = 1:n_seeds
     rt = run_tbc(x, y, BS, J_x, J_y, ...
         E0, T, M, p_base, kappa, r_j, E_elec, E_amp, L, r_tx);
     store.PDR.tbc(s,:)    = rt.PDR;
+    store.sent.tbc(s,:)   = rt.sent;
+    store.delivered.tbc(s,:) = rt.delivered;
     store.energy.tbc(s,:) = rt.energy;
     store.delay.tbc(s,:)  = rt.delay;
     store.alive.tbc(s,:)  = rt.alive;
@@ -61,6 +65,8 @@ for s = 1:n_seeds
     rf = run_fcpa(x, y, BS, J_x, J_y, ...
         E0, T, M, K_elec, p_CH, p_base, kappa, r_j, E_elec, E_amp, E_da, L, r_tx);
     store.PDR.fcpa(s,:)    = rf.PDR;
+    store.sent.fcpa(s,:)   = rf.sent;
+    store.delivered.fcpa(s,:) = rf.delivered;
     store.energy.fcpa(s,:) = rf.energy;
     store.delay.fcpa(s,:)  = rf.delay;
     store.alive.fcpa(s,:)  = rf.alive;
@@ -149,14 +155,11 @@ for k = 1:n_schemes
 end
 fprintf('\n');
 
-% --- Total packets delivered: sum_t( PDR(t) * alive(t) * M ) in thousands ---
+% --- Total packets delivered: actual packets received at the BS in thousands ---
 fprintf('%-22s |', 'Total del. pkts (k)');
 for k = 1:n_schemes
     fd = scheme_fields{k};
-    tpd = zeros(n_seeds, 1);
-    for s = 1:n_seeds
-        tpd(s) = sum(store.PDR.(fd)(s,:) .* store.alive.(fd)(s,:)) * M / 1000;
-    end
+    tpd = sum(store.delivered.(fd), 2) / 1000;
     fprintf(' %6.1f +/- %5.1f      |', mean(tpd), std(tpd));
 end
 fprintf('\n');
@@ -175,16 +178,15 @@ for k = 1:n_schemes
     ms{k}.delay_std   = std( store.delay.(fd), 0, 1);
     ms{k}.alive_mean  = mean(store.alive.(fd),  1);
     ms{k}.alive_std   = std( store.alive.(fd), 0, 1);
+    ms{k}.delivered_mean = mean(store.delivered.(fd), 1);
+    ms{k}.delivered_std  = std( store.delivered.(fd), 0, 1);
     ms{k}.label       = scheme_names{k};
 end
 
 % Pre-compute per-seed total delivered packets for plotting struct
 for k = 1:n_schemes
     fd = scheme_fields{k};
-    tpd_all = zeros(n_seeds, T);
-    for s = 1:n_seeds
-        tpd_all(s,:) = cumsum(store.PDR.(fd)(s,:) .* store.alive.(fd)(s,:)) * M;
-    end
+    tpd_all = cumsum(store.delivered.(fd), 2);
     ms{k}.cum_pkts_mean = mean(tpd_all, 1);
     ms{k}.cum_pkts_std  = std( tpd_all, 0, 1);
 end
